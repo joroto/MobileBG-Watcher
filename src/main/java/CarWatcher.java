@@ -148,13 +148,6 @@ public class CarWatcher extends JFrame {
         }
     }
 
-    public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> {
-            CarWatcher carInfoViewer2 = new CarWatcher();
-            carInfoViewer2.setVisible(true);
-        });
-    }
-
     private static class CarInfoCellRenderer extends JPanel implements ListCellRenderer<Car> {
         private JLabel imageLabel = new JLabel();
         private JLabel textLabel = new JLabel();
