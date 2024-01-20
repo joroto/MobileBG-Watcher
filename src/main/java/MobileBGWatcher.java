@@ -22,13 +22,13 @@ import java.util.Properties;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class CarWatcher extends JFrame {
+public class MobileBGWatcher extends JFrame {
     private final Properties properties;
     private List<Car> carList;
     private DefaultListModel<Car> listModel;
     private JList<Car> carJList;
 
-    public CarWatcher() {
+    public MobileBGWatcher() {
         this.properties = new Properties();
         try {
             FileInputStream input = new FileInputStream("car_requests.properties");
@@ -58,7 +58,7 @@ public class CarWatcher extends JFrame {
         getContentPane().add(scrollPane, BorderLayout.CENTER);
 
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setTitle("Car Watcher");
+        setTitle("MobileBG Watcher");
         setSize(400, 800);
         setLocationRelativeTo(null);
         updateCarInfo();
@@ -70,7 +70,15 @@ public class CarWatcher extends JFrame {
             }
         });
 
-        new Timer(600000, evt -> updateCarInfo()).start();
+        int refreshInterval;
+        if (properties.getProperty("refresh_interval") == null) {
+            refreshInterval = 10;
+            Logger_.info("Custom refresh interval not set, defaulting to 10 minutes.");
+        } else {
+            refreshInterval = Integer.parseInt(properties.getProperty("refresh_interval"));
+            Logger_.info("Custom refresh interval set at " + refreshInterval + " minutes.");
+        }
+        new Timer(refreshInterval * 60000, evt -> updateCarInfo()).start();
     }
 
     private void quit() {
@@ -142,7 +150,7 @@ public class CarWatcher extends JFrame {
                                     Long.valueOf(matcher.group(1))
                             ));
                             carsFound++;
-                        }else {
+                        } else {
                             Logger_.error("Failed to get car info, check selectors");
                             quit();
                         }
@@ -192,8 +200,8 @@ public class CarWatcher extends JFrame {
             imageLabel.setIcon(new ImageIcon(scaledImage));
             textLabel.setText(
                     "<html>" + value.getTitle() +
-                    "<br> Price: " + value.getPrice() +
-                    "<br> Adv: " + value.getAdvN() + "</html>");
+                            "<br> Price: " + value.getPrice() +
+                            "<br> Adv: " + value.getAdvN() + "</html>");
 
             return this;
         }

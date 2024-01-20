@@ -30,7 +30,22 @@ public abstract class Logger_ {
     }
 
     public static void saveLog() {
-        File file = new File(currentDirectory + "\\" + "CarWatcher_LOG_" +System.currentTimeMillis() + "");
+        String folderPath = currentDirectory + "/LOGS";
+        File folder = new File(folderPath);
+
+        if (!folder.exists()) {
+            boolean created = folder.mkdir(); // mkdirs() can be used to create parent directories as well
+
+            if (created) {
+                info("Folder for logs created successfully.");
+            } else {
+                error("Failed to create folder for logs.");
+            }
+        } else {
+            info("Folder for logs found.");
+        }
+
+        File file = new File(currentDirectory + "\\LOGS\\" + "CarWatcher_LOG_" +System.currentTimeMillis() + "");
         try {
             FileWriter myWriter = new FileWriter(file);
             myWriter.write(String.valueOf(log));
