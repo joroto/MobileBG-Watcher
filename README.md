@@ -6,7 +6,7 @@ The listings are always sorted by newest created, edits of old listings are not 
 
 # How to use
 Requires Java 16 or higher!
-1. Download the latest packaged JAR file from the releases page
+1. Download the latest packaged JAR file from the [releases page](https://github.com/joroto/MobileBG-Watcher/releases)
 2. Create a folder and place the JAR file in it
 3. Go to https://www.mobile.bg/pcgi/mobile.cgi and select your filters (!**Sort by newest**!)<br>
    <image width= '450' src='https://i.imgur.com/HQGtDbc.png'></image>
