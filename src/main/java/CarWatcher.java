@@ -8,6 +8,8 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
 import java.io.*;
 import java.net.HttpURLConnection;
@@ -33,8 +35,8 @@ public class CarWatcher extends JFrame {
             properties.load(input);
             input.close();
         } catch (IOException e) {
-            System.out.println("NO car_requests.properties FILE FOUND, PLEASE CREATE IT.");
-            e.printStackTrace();
+            Logger_.error("NO car_requests.properties FILE FOUND, PLEASE CREATE IT.");
+            Logger_.error(e.getMessage());
         }
         carList = new ArrayList<>();
         listModel = new DefaultListModel<>();
@@ -61,9 +63,20 @@ public class CarWatcher extends JFrame {
         setLocationRelativeTo(null);
         updateCarInfo();
 
+        addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent e) {
+                quit();
+            }
+        });
+
         new Timer(600000, evt -> updateCarInfo()).start();
     }
 
+    private void quit() {
+        Logger_.info("Exiting..");
+        Logger_.saveLog();
+    }
 
     private String getRequest(String modelName) {
         return properties.getProperty(modelName.toLowerCase());
@@ -73,8 +86,8 @@ public class CarWatcher extends JFrame {
         carList.clear();
         properties.stringPropertyNames().forEach(modelName -> {
             String request = getRequest(modelName);
-            System.out.println("Getting cars for: " + modelName);
-            System.out.println("Request: " + request);
+            Logger_.info("Getting cars for: " + modelName);
+            Logger_.info("Request: " + request);
             getCars(request);
         });
 
@@ -110,7 +123,7 @@ public class CarWatcher extends JFrame {
                 while ((line = reader.readLine()) != null) {
                     response.append(line);
                 }
-                System.out.println("Response Code: " + responseCode);
+                Logger_.info("Response Code: " + responseCode);
                 Document document = Jsoup.parse(response.toString());
                 Elements elements = document.select("form > .tablereset");
                 int carsFound = 0;
@@ -129,14 +142,19 @@ public class CarWatcher extends JFrame {
                                     Long.valueOf(matcher.group(1))
                             ));
                             carsFound++;
+                        }else {
+                            Logger_.error("Failed to get car info, check selectors");
+                            quit();
                         }
                     }
                 }
-                System.out.println(carsFound + " cars found!");
+                Logger_.info(carsFound + " cars found!");
             }
             connection.disconnect();
         } catch (Exception e) {
-            e.printStackTrace();
+            Logger_.error("getCars() request failed.");
+            Logger_.error(e.getMessage());
+            quit();
         }
     }
 
@@ -144,7 +162,8 @@ public class CarWatcher extends JFrame {
         try {
             Desktop.getDesktop().browse(new URL(url).toURI());
         } catch (Exception e) {
-            e.printStackTrace();
+            Logger_.error("Could not open browser");
+            Logger_.error(e.getMessage());
         }
     }
 
