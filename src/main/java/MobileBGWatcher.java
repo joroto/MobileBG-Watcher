@@ -37,6 +37,7 @@ public class MobileBGWatcher extends JFrame {
         } catch (IOException e) {
             Logger_.error("NO car_requests.properties FILE FOUND, PLEASE CREATE IT.");
             Logger_.error(e.getMessage());
+            quit();
         }
         carList = new ArrayList<>();
         listModel = new DefaultListModel<>();
