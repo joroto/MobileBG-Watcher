@@ -85,6 +85,7 @@ public class MobileBGWatcher extends JFrame {
     private void quit() {
         Logger_.info("Exiting..");
         Logger_.saveLog();
+        System.exit(0);
     }
 
     private String getRequest(String modelName) {
