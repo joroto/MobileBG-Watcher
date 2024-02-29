@@ -135,8 +135,6 @@ public class MobileBGWatcher extends JFrame {
                 }
                 Logger_.info("Response Code: " + responseCode);
                 Document document = Jsoup.parse(response.toString());
-                String dString = document.html();
-                System.out.println(dString);
                 Elements elements = document.select("form > .tablereset");
                 int carsFound = 0;
                 for (Element element : elements) {
