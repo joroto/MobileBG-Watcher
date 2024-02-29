@@ -141,7 +141,7 @@ public class MobileBGWatcher extends JFrame {
                     String carImage = element.select("img").attr("src");
                     if (!carImage.contains("/no.gif") && (carImage.contains("cdn") || carImage.contains("mobistatic"))) {
                         String carLink = element.select("a").attr("href");
-                        Pattern advPattern = Pattern.compile("adv=(\\d+)");
+                        Pattern advPattern = Pattern.compile("(adv=|obiava-)(\\d+)");
                         Matcher matcher = advPattern.matcher(carLink);
                         if (matcher.find()) {
                             BufferedImage read = ImageIO.read(new URL("https:" + carImage));
@@ -149,7 +149,7 @@ public class MobileBGWatcher extends JFrame {
                                     element.select(".mmm").text(),
                                     "https://" + carLink.replaceFirst("//", ""),
                                     element.select(".price").text(),
-                                    Long.valueOf(matcher.group(1))
+                                    Long.valueOf(matcher.group(2))
                             ));
                             carsFound++;
                         } else {
