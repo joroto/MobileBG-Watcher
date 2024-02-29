@@ -135,6 +135,8 @@ public class MobileBGWatcher extends JFrame {
                 }
                 Logger_.info("Response Code: " + responseCode);
                 Document document = Jsoup.parse(response.toString());
+                String dString = document.html();
+                System.out.println(dString);
                 Elements elements = document.select("form > .tablereset");
                 int carsFound = 0;
                 for (Element element : elements) {
@@ -146,7 +148,7 @@ public class MobileBGWatcher extends JFrame {
                         if (matcher.find()) {
                             BufferedImage read = ImageIO.read(new URL("https:" + carImage));
                             carList.add(new Car(read,
-                                    element.select(".mmm").text(),
+                                    element.select(".mmmL").text(),
                                     "https://" + carLink.replaceFirst("//", ""),
                                     element.select(".price").text(),
                                     Long.valueOf(matcher.group(2))
