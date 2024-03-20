@@ -138,14 +138,13 @@ public class MobileBGWatcher extends JFrame {
                 Elements elements = document.select("form > .tablereset");
                 int carsFound = 0;
                 for (Element element : elements) {
-                    String carImage = element.select("img").attr("src");
-                    if (!carImage.contains("/no.gif") && (carImage.contains("cdn") || carImage.contains("mobistatic"))) {
+                    String carImageURL = "https:" + element.select("img").attr("src");
+                    if (!carImageURL.contains("/no.gif") && (carImageURL.contains("cdn") || carImageURL.contains("mobistatic"))) {
                         String carLink = element.select("a").attr("href");
                         Pattern advPattern = Pattern.compile("(adv=|obiava-)(\\d+)");
                         Matcher matcher = advPattern.matcher(carLink);
                         if (matcher.find()) {
-                            BufferedImage read = ImageIO.read(new URL("https:" + carImage));
-                            carList.add(new Car(read,
+                            carList.add(new Car(carImageURL,
                                     element.select(".mmmL").text(),
                                     "https://" + carLink.replaceFirst("//", ""),
                                     element.select(".price").text(),
