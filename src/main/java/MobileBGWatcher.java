@@ -92,12 +92,17 @@ public class MobileBGWatcher extends JFrame {
         return properties.getProperty(modelName.toLowerCase());
     }
 
+    static int carsFound = 0;
+    static boolean secondPageChecked = false;
+
     private void updateCarInfo() {
         carList.clear();
         properties.stringPropertyNames().forEach(modelName -> {
             String request = getRequest(modelName);
             Logger_.info("Getting cars for: " + modelName);
             Logger_.info("Request: " + request);
+            carsFound = 0;
+            secondPageChecked = false;
             getCars(request);
         });
 
@@ -112,7 +117,8 @@ public class MobileBGWatcher extends JFrame {
 
     private void getCars(String reqBody) {
         try {
-            URL url = new URL("https://www.mobile.bg/pcgi/mobile.cgi");
+//            System.out.println(reqBody);
+            URL url = new URL(reqBody);
             HttpURLConnection connection = (HttpURLConnection) url.openConnection();
             connection.setRequestMethod("POST");
             connection.setRequestProperty("accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7");
@@ -120,10 +126,10 @@ public class MobileBGWatcher extends JFrame {
             connection.setRequestProperty("content-type", "application/x-www-form-urlencoded");
             connection.setDoOutput(true);
 
-            byte[] postData = reqBody.getBytes(StandardCharsets.UTF_8);
-            try (OutputStream os = connection.getOutputStream()) {
-                os.write(postData);
-            }
+//            byte[] postData = reqBody.getBytes(StandardCharsets.UTF_8);
+//            try (OutputStream os = connection.getOutputStream()) {
+//                os.write(postData);
+//            }
 
             int responseCode = connection.getResponseCode();
 
@@ -135,20 +141,25 @@ public class MobileBGWatcher extends JFrame {
                 }
                 Logger_.info("Response Code: " + responseCode);
                 Document document = Jsoup.parse(response.toString());
-                Elements elements = document.select("form > .tablereset");
-                int carsFound = 0;
+//                System.out.println(document.toString() + " HTML");
+                Elements elements = document.select("form[name='search'] div[class*='item']");
                 for (Element element : elements) {
-                    String carImageURL = "https:" + element.select("img").attr("src");
+                    String carImageURL = "https:" + element.select("img[class='pic']").attr("src");
                     if (!carImageURL.contains("/no.gif") && (carImageURL.contains("cdn") || carImageURL.contains("mobistatic"))) {
-                        String carLink = element.select("a").attr("href");
+                        String carLink = element.select("a[class='title saveSlink']").attr("href");
                         Pattern advPattern = Pattern.compile("(adv=|obiava-)(\\d+)");
                         Matcher matcher = advPattern.matcher(carLink);
                         if (matcher.find()) {
+                            String advID = matcher.group(2);
+                            if(advID.startsWith("2")){
+                                advID = 1 + advID.substring(1);
+                            }
+
                             carList.add(new Car(carImageURL,
-                                    element.select(".mmmL").text(),
+                                    element.select(".zaglavie").text(),
                                     "https://" + carLink.replaceFirst("//", ""),
-                                    element.select(".price").text(),
-                                    Long.valueOf(matcher.group(2))
+                                    element.select(".price ").text(),
+                                    Long.valueOf(advID)
                             ));
                             carsFound++;
                         } else {
@@ -158,12 +169,28 @@ public class MobileBGWatcher extends JFrame {
                     }
                 }
                 Logger_.info(carsFound + " cars found!");
+                if (!secondPageChecked) {
+                    // Go to page 2 and fetch cars also
+                    secondPageChecked = true;
+                    getCars(insertTextBeforeQuestionMark(reqBody, "/p-2", '?'));
+                }
             }
             connection.disconnect();
         } catch (Exception e) {
             Logger_.error("getCars() request failed.");
             Logger_.error(e.getMessage());
             quit();
+        }
+    }
+
+    public static String insertTextBeforeQuestionMark(String originalString, String textToInsert, char beforeChar) {
+        int index = originalString.indexOf(beforeChar);
+        if (index != -1) {
+            String beforeQuestionMark = originalString.substring(0, index);
+            String afterQuestionMark = originalString.substring(index);
+            return beforeQuestionMark + textToInsert + afterQuestionMark;
+        } else {
+            return "No " + beforeChar + " found in the original string.";
         }
     }
 
