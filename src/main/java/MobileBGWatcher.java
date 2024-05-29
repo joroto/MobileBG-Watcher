@@ -3,8 +3,8 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
-import javax.imageio.ImageIO;
 import javax.swing.*;
+import javax.swing.Timer;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
@@ -15,8 +15,7 @@ import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Comparator;
+import java.util.*;
 import java.util.List;
 import java.util.Properties;
 import java.util.regex.Matcher;
@@ -27,6 +26,8 @@ public class MobileBGWatcher extends JFrame {
     private List<Car> carList;
     private DefaultListModel<Car> listModel;
     private JList<Car> carJList;
+    private JLabel loadingLabel;
+    private JPanel loadingPanel;
 
     public MobileBGWatcher() {
         this.properties = new Properties();
@@ -54,15 +55,20 @@ public class MobileBGWatcher extends JFrame {
             }
         });
 
-        JScrollPane scrollPane = new JScrollPane(carJList);
+        loadingLabel = new JLabel("Loading cars...", SwingConstants.CENTER);
+        loadingLabel.setFont(new Font("Serif", Font.BOLD, 20));
 
-        getContentPane().add(scrollPane, BorderLayout.CENTER);
+        loadingPanel = new JPanel();
+        loadingPanel.setLayout(new BoxLayout(loadingPanel, BoxLayout.Y_AXIS));
+        loadingPanel.add(loadingLabel);
+
+        getContentPane().setLayout(new BorderLayout());
+        getContentPane().add(loadingPanel, BorderLayout.CENTER);
 
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setTitle("MobileBG Watcher");
         setSize(400, 800);
         setLocationRelativeTo(null);
-        updateCarInfo();
 
         addWindowListener(new WindowAdapter() {
             @Override
@@ -79,7 +85,9 @@ public class MobileBGWatcher extends JFrame {
             refreshInterval = Integer.parseInt(properties.getProperty("refresh_interval"));
             Logger_.info("Custom refresh interval set at " + refreshInterval + " minutes.");
         }
-        new Timer(refreshInterval * 60000, evt -> updateCarInfo()).start();
+        new Timer(refreshInterval * 60000, evt -> loadCars()).start();
+
+        loadCars();
     }
 
     private void quit() {
@@ -95,6 +103,33 @@ public class MobileBGWatcher extends JFrame {
     static int carsFound = 0;
     static boolean secondPageChecked = false;
 
+    private void loadCars() {
+        loadingLabel.setVisible(true);
+        carJList.setVisible(false);
+        loadingPanel.removeAll();
+        loadingPanel.add(loadingLabel);
+
+        SwingWorker<Void, Void> worker = new SwingWorker<>() {
+            @Override
+            protected Void doInBackground() {
+                updateCarInfo();
+                return null;
+            }
+
+            @Override
+            protected void done() {
+                loadingLabel.setVisible(false);
+                getContentPane().removeAll();
+                getContentPane().add(new JScrollPane(carJList), BorderLayout.CENTER);
+                loadingPanel.removeAll();
+                revalidate();
+                carJList.setVisible(true);
+            }
+        };
+
+        worker.execute();
+    }
+
     private void updateCarInfo() {
         carList.clear();
         properties.stringPropertyNames().forEach(modelName -> {
@@ -104,6 +139,11 @@ public class MobileBGWatcher extends JFrame {
             carsFound = 0;
             secondPageChecked = false;
             getCars(request);
+            SwingUtilities.invokeLater(() -> {
+                loadingPanel.add(new JLabel(modelName + " loaded."));
+                loadingPanel.revalidate();
+                loadingPanel.repaint();
+            });
         });
 
         carList.sort(Comparator.comparingLong(Car::getAdvN).reversed());
@@ -112,7 +152,6 @@ public class MobileBGWatcher extends JFrame {
         for (Car carInfo : carList) {
             listModel.addElement(carInfo);
         }
-        repaint();
     }
 
     private void getCars(String reqBody) {
