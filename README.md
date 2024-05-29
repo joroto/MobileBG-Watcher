@@ -18,7 +18,7 @@ Requires Java 16 or higher!
 
 #### Double clicking a picture or text will open the corresponding listing in your web browser
 
-#### To have multiple active filters you add lines to the <code>car_requests.properties</code> file like exactly the same way you did the first car model<br>
+#### To have multiple active filters you add lines to the <code>car_requests.properties</code> file exactly the same way you did the first car model<br>
 
 #### Default refresh interval is 10 minutes but you can change it through the same <code>car_requests.properties</code> file by adding a line containing <code>refresh_interval=</code>, uses minutes
 The tool will create a folder named "LOGS" for logging which should not concern you, it's for debugging.
