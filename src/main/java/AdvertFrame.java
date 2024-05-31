@@ -14,7 +14,7 @@ public class AdvertFrame extends JFrame {
 
     public AdvertFrame(Advert advert) {
         imageUrls = advert.getImageUrls();
-        setTitle("Image Slider");
+        setTitle("Advert");
         setSize(1200, 600);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
