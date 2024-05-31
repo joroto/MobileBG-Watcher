@@ -12,9 +12,9 @@ import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
 import java.io.*;
-import java.net.HttpURLConnection;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.List;
 import java.util.Properties;
@@ -25,7 +25,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class MobileBGWatcher extends JFrame {
+public class MobileBGWatcherFrame extends JFrame {
     private final Properties properties;
     private List<Car> carList;
     private DefaultListModel<Car> listModel;
@@ -33,7 +33,7 @@ public class MobileBGWatcher extends JFrame {
     private JLabel loadingLabel;
     private JPanel loadingPanel;
 
-    public MobileBGWatcher() {
+    public MobileBGWatcherFrame() {
         this.properties = new Properties();
         try {
             FileInputStream input = new FileInputStream("car_requests.properties");
@@ -54,7 +54,18 @@ public class MobileBGWatcher extends JFrame {
             public void mouseClicked(MouseEvent evt) {
                 if (evt.getClickCount() == 2) {
                     int index = carJList.locationToIndex(evt.getPoint());
-                    openBrowser(listModel.getElementAt(index).getUrl());
+                    openAdvert(listModel.getElementAt(index).getUrl());
+                }
+            }
+
+            public void mousePressed(MouseEvent e) {
+                if (SwingUtilities.isRightMouseButton(e)) {
+                    int index = carJList.locationToIndex(e.getPoint());
+                    try {
+                        Desktop.getDesktop().browse(new URI(listModel.getElementAt(index).getUrl()));
+                    } catch (IOException | URISyntaxException ex) {
+                        throw new RuntimeException(ex);
+                    }
                 }
             }
         });
@@ -134,6 +145,7 @@ public class MobileBGWatcher extends JFrame {
     }
 
     List<String> modelsScanned = new ArrayList<>();
+
     private void updateCarInfo() {
         carList.clear();
         ExecutorService executorService = Executors.newFixedThreadPool(properties.size()); // Adjust the pool size as needed
@@ -171,67 +183,54 @@ public class MobileBGWatcher extends JFrame {
         }
     }
 
+    private Document callURL(String urlIn) {
+        Document document = null;
+
+        try {
+            document = Jsoup.parse(new URL(urlIn).openStream(), "Windows-1251", urlIn);
+        } catch (IOException e) {
+            Logger_.error(e.getMessage());
+        }
+
+        return document;
+    }
+
     private void getCars(String reqBody, String modelName) {
         try {
-//            System.out.println(reqBody);
-            URL url = new URL(reqBody);
-            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-            connection.setRequestMethod("POST");
-            connection.setRequestProperty("accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7");
-            connection.setRequestProperty("accept-language", "en-US,en;q=0.9,bg;q=0.8");
-            connection.setRequestProperty("content-type", "application/x-www-form-urlencoded");
-            connection.setDoOutput(true);
-
-//            byte[] postData = reqBody.getBytes(StandardCharsets.UTF_8);
-//            try (OutputStream os = connection.getOutputStream()) {
-//                os.write(postData);
-//            }
-
-            int responseCode = connection.getResponseCode();
-
-            try (BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8))) {
-                String line;
-                StringBuilder response = new StringBuilder();
-                while ((line = reader.readLine()) != null) {
-                    response.append(line);
-                }
-                Logger_.info("Response Code: " + responseCode);
-                Document document = Jsoup.parse(response.toString());
+            Document document = callURL(reqBody);
 //                System.out.println(document.toString() + " HTML");
-                Elements elements = document.select("form[name='search'] div[class*='item']");
-                for (Element element : elements) {
-                    String carImageURL = "https:" + element.select("img[class='pic']").attr("src");
-                    if (!carImageURL.contains("/no.gif") && (carImageURL.contains("cdn") || carImageURL.contains("mobistatic"))) {
-                        String carLink = element.select("a[class='title saveSlink']").attr("href");
-                        Pattern advPattern = Pattern.compile("(adv=|obiava-)(\\d+)");
-                        Matcher matcher = advPattern.matcher(carLink);
-                        if (matcher.find()) {
-                            String advID = matcher.group(2);
-                            if(advID.startsWith("2")){
-                                advID = 1 + advID.substring(1);
-                            }
-
-                            carList.add(new Car(carImageURL,
-                                    element.select(".zaglavie").text(),
-                                    "https://" + carLink.replaceFirst("//", ""),
-                                    element.select(".price ").text(),
-                                    Long.valueOf(advID)
-                            ));
-                            carsFound++;
-                        } else {
-                            Logger_.error("Failed to get car info, check selectors");
-                            quit();
+            Elements elements = document.select("form[name='search'] div[class*='item']");
+            for (Element element : elements) {
+                String carImageURL = "https:" + element.select("img[class='pic']").attr("src");
+                if (!carImageURL.contains("/no.gif") && (carImageURL.contains("cdn") || carImageURL.contains("mobistatic"))) {
+                    String carLink = element.select("a[class='title saveSlink']").attr("href");
+                    Pattern advPattern = Pattern.compile("(adv=|obiava-)(\\d+)");
+                    Matcher matcher = advPattern.matcher(carLink);
+                    if (matcher.find()) {
+                        String advID = matcher.group(2);
+                        if (advID.startsWith("2")) {
+                            advID = 1 + advID.substring(1);
                         }
+
+                        carList.add(new Car(carImageURL,
+                                element.select("div[class='zaglavie'] a").text(),
+                                "https://" + carLink.replaceFirst("//", ""),
+                                element.select(".price ").text(),
+                                Long.valueOf(advID)
+                        ));
+                        carsFound++;
+                    } else {
+                        Logger_.error("Failed to get car info, check selectors");
+                        quit();
                     }
                 }
-//                Logger_.info(carsFound + " cars found!");
-                if (!modelsScanned.contains(modelName)) {
-                    // Go to page 2 and fetch cars also
-                    modelsScanned.add(modelName);
-                    getCars(insertTextBeforeQuestionMark(reqBody, "/p-2", '?'), modelName);
-                }
             }
-            connection.disconnect();
+//                Logger_.info(carsFound + " cars found!");
+            if (!modelsScanned.contains(modelName)) {
+                // Go to page 2 and fetch cars also
+                modelsScanned.add(modelName);
+                getCars(insertTextBeforeQuestionMark(reqBody, "/p-2", '?'), modelName);
+            }
         } catch (Exception e) {
             Logger_.error("getCars() request failed.");
             Logger_.error(e.getMessage());
@@ -250,13 +249,76 @@ public class MobileBGWatcher extends JFrame {
         }
     }
 
-    private void openBrowser(String url) {
+    Map<String, Advert> advertMap = new HashMap<>();
+
+    private void openAdvert(String url) {
         try {
-            Desktop.getDesktop().browse(new URL(url).toURI());
+//            Desktop.getDesktop().browse(new URL(url).toURI());
+            Document document = callURL(url);
+            String charset = document.charset().name();
+            Logger_.info("Document Charset: " + charset);
+            Elements images = document.select("a[class='smallPicturesGallery'] img");
+            List<String> imageLinks = new ArrayList<>();
+            for (Element image : images) {
+                String src = image.attr("src");
+                imageLinks.add("https:" + insertBig(src));
+            }
+
+            Element advertTitle = document.selectFirst("div[class='obTitle']");
+            Element carLocation = document.selectFirst("div[class='carLocation']");
+            Element advertPhone = document.selectFirst("div[class='contactsBox'] div[class='phone']");
+//            Element priceHistory = document.selectFirst("div[id='priceHistory']");
+            Elements mainCarParams = document.select("div[class='mainCarParams'] div[class*='item']");
+            Element advertStats = document.selectFirst("div[class='statistiki'] div[class='text']");
+            Element advertDescription = document.selectFirst("div[class='moreInfo'] div[class='text']");
+            String advertDescriptionText;
+            if(advertDescription != null){
+                advertDescriptionText = document.selectFirst("div[class='moreInfo'] div[class='text']").html();
+            }else {
+                advertDescriptionText = "--- NO DESCRIPTION ---";
+            }
+
+            Map<String, String> mainCarParamsMap = new HashMap<>();
+            for (Element mainCarParam : mainCarParams) {
+                String mpLabel = mainCarParam.selectFirst("div[class='mpLabel']").text();
+                String mpInfo = mainCarParam.selectFirst("div[class='mpInfo']").text();
+                mainCarParamsMap.put(mainCarParam.className().replace("item ", ""), mpLabel + ": " + mpInfo);
+            }
+
+
+            Advert advert;
+            if (!advertMap.containsKey(url)) {
+                advert = new Advert(imageLinks, advertTitle.text(), carLocation.text(), advertPhone.text().split(" ")[0], mainCarParamsMap, advertStats.text(), url, advertDescriptionText);
+                advertMap.put(url, advert);
+            } else {
+                advert = advertMap.get(url);
+            }
+
+            Advert finalAdvert = advert;
+            SwingUtilities.invokeLater(() -> {
+                new AdvertFrame(finalAdvert).setVisible(true);
+            });
+
         } catch (Exception e) {
             Logger_.error("Could not open browser");
             Logger_.error(e.getMessage());
         }
+    }
+
+    public static String insertBig(String url) {
+        // Locate the position of "/1/"
+        String target = "/1/";
+        int index = url.indexOf(target);
+
+        // If the substring is found, insert "big/" after it
+        if (index != -1) {
+            StringBuilder modifiedUrl = new StringBuilder(url);
+            modifiedUrl.insert(index + target.length(), "big/");
+            return modifiedUrl.toString();
+        }
+
+        // Return the original URL if the target substring is not found
+        return url;
     }
 
     private static class CarInfoCellRenderer extends JPanel implements ListCellRenderer<Car> {
