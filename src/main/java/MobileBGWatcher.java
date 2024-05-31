@@ -18,6 +18,10 @@ import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.List;
 import java.util.Properties;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -101,7 +105,6 @@ public class MobileBGWatcher extends JFrame {
     }
 
     static int carsFound = 0;
-    static boolean secondPageChecked = false;
 
     private void loadCars() {
         loadingLabel.setVisible(true);
@@ -130,21 +133,35 @@ public class MobileBGWatcher extends JFrame {
         worker.execute();
     }
 
+    List<String> modelsScanned = new ArrayList<>();
     private void updateCarInfo() {
         carList.clear();
+        ExecutorService executorService = Executors.newFixedThreadPool(properties.size()); // Adjust the pool size as needed
+        List<Callable<Void>> tasks = new ArrayList<>();
+
         properties.stringPropertyNames().forEach(modelName -> {
-            String request = getRequest(modelName);
-            Logger_.info("Getting cars for: " + modelName);
-            Logger_.info("Request: " + request);
-            carsFound = 0;
-            secondPageChecked = false;
-            getCars(request);
-            SwingUtilities.invokeLater(() -> {
-                loadingPanel.add(new JLabel(modelName + " loaded."));
-                loadingPanel.revalidate();
-                loadingPanel.repaint();
+            tasks.add(() -> {
+                String request = getRequest(modelName);
+                Logger_.info("Getting cars for: " + modelName);
+                Logger_.info("Request: " + request);
+                carsFound = 0;
+                getCars(request, modelName);
+                SwingUtilities.invokeLater(() -> {
+                    loadingPanel.add(new JLabel(modelName + " loaded."));
+                    loadingPanel.revalidate();
+                    loadingPanel.repaint();
+                });
+                return null;
             });
         });
+
+        try {
+            executorService.invokeAll(tasks);
+            executorService.shutdown();
+            executorService.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+        } catch (InterruptedException e) {
+            Logger_.error("Error in executing tasks: " + e.getMessage());
+        }
 
         carList.sort(Comparator.comparingLong(Car::getAdvN).reversed());
 
@@ -154,7 +171,7 @@ public class MobileBGWatcher extends JFrame {
         }
     }
 
-    private void getCars(String reqBody) {
+    private void getCars(String reqBody, String modelName) {
         try {
 //            System.out.println(reqBody);
             URL url = new URL(reqBody);
@@ -207,11 +224,11 @@ public class MobileBGWatcher extends JFrame {
                         }
                     }
                 }
-                Logger_.info(carsFound + " cars found!");
-                if (!secondPageChecked) {
+//                Logger_.info(carsFound + " cars found!");
+                if (!modelsScanned.contains(modelName)) {
                     // Go to page 2 and fetch cars also
-                    secondPageChecked = true;
-                    getCars(insertTextBeforeQuestionMark(reqBody, "/p-2", '?'));
+                    modelsScanned.add(modelName);
+                    getCars(insertTextBeforeQuestionMark(reqBody, "/p-2", '?'), modelName);
                 }
             }
             connection.disconnect();

@@ -6,7 +6,7 @@
 
     <groupId>org.example</groupId>
     <artifactId>MobileBG-Watcher</artifactId>
-    <version>1.11</version>
+    <version>1.20</version>
 
     <properties>
         <maven.compiler.source>16</maven.compiler.source>
