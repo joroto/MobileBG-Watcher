@@ -7,6 +7,7 @@ public class Advert {
     List<String> imageUrls;
     String advertTitle;
     String carLocation;
+    String carPrice;
     String advertPhone;
     //    String priceHistory;
     Map<String, String> mainCarParams;
@@ -37,10 +38,11 @@ public class Advert {
         this.advertURL = advertURL;
     }
 
-    public Advert(List<String> imageUrls, String advertTitle, String carLocation, String advertPhone /*,String priceHistory */, Map<String, String> mainCarParams, String advertStats, String advertURL, String advertDescription) {
+    public Advert(List<String> imageUrls, String advertTitle, String carLocation, String carPrice, String advertPhone /*,String priceHistory */, Map<String, String> mainCarParams, String advertStats, String advertURL, String advertDescription) {
         this.imageUrls = imageUrls;
         this.advertTitle = advertTitle;
         this.carLocation = carLocation;
+        this.carPrice = carPrice;
         this.advertPhone = advertPhone;
 //        this.priceHistory = priceHistory;
         this.mainCarParams = mainCarParams;
@@ -48,6 +50,22 @@ public class Advert {
         this.advertURL = advertURL;
         this.advertDescription = advertDescription;
         this.isFavourite = false;
+    }
+
+    public String getCarPrice() {
+        return carPrice;
+    }
+
+    public void setCarPrice(String carPrice) {
+        this.carPrice = carPrice;
+    }
+
+    public String getAdvertDescription() {
+        return advertDescription;
+    }
+
+    public void setAdvertDescription(String advertDescription) {
+        this.advertDescription = advertDescription;
     }
 
     public String getAdvertTitle() {

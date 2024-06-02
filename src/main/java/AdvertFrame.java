@@ -47,11 +47,16 @@ public class AdvertFrame extends JFrame {
 
         infoPanel = new JPanel();
         infoPanel.setLayout(new BoxLayout(infoPanel, BoxLayout.Y_AXIS));
-        Font labelFont = new Font("Arial", Font.BOLD, 12);
+        Font labelFont = new Font("Arial", Font.BOLD, 13);
 
         JLabel jLabelCarLocation = new JLabel(advert.carLocation);
         jLabelCarLocation.setFont(labelFont);
         infoPanel.add(jLabelCarLocation);
+        addSpace();
+
+        JLabel jLabelCarPrice = new JLabel(advert.carPrice);
+        jLabelCarPrice.setFont(labelFont);
+        infoPanel.add(jLabelCarPrice);
         addSpace();
 
         Map<String, String> mainCarParams = advert.mainCarParams;

@@ -266,6 +266,7 @@ public class MobileBGWatcherFrame extends JFrame {
 
             Element advertTitle = document.selectFirst("div[class='obTitle']");
             Element carLocation = document.selectFirst("div[class='carLocation']");
+            Element carPrice = document.selectFirst("div[class='Price']");
             Element advertPhone = document.selectFirst("div[class='contactsBox'] div[class='phone']");
 //            Element priceHistory = document.selectFirst("div[id='priceHistory']");
             Elements mainCarParams = document.select("div[class='mainCarParams'] div[class*='item']");
@@ -288,7 +289,7 @@ public class MobileBGWatcherFrame extends JFrame {
 
             Advert advert;
             if (!advertMap.containsKey(url)) {
-                advert = new Advert(imageLinks, advertTitle.text(), carLocation.text(), advertPhone.text().split(" ")[0], mainCarParamsMap, advertStats.text(), url, advertDescriptionText);
+                advert = new Advert(imageLinks, advertTitle.text(), carLocation.text(),carPrice.text().split("\\.")[0], advertPhone.text().split(" ")[0], mainCarParamsMap, advertStats.text(), url, advertDescriptionText);
                 advertMap.put(url, advert);
             } else {
                 advert = advertMap.get(url);
