@@ -4,7 +4,6 @@ import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
 import javax.swing.*;
-import javax.swing.Timer;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
@@ -32,6 +31,7 @@ public class MobileBGWatcherFrame extends JFrame {
     private JList<Car> carJList;
     private JLabel loadingLabel;
     private JPanel loadingPanel;
+    private List<String> propertySettings = List.of("logging_enabled");
 
     public MobileBGWatcherFrame() {
         this.properties = new Properties();
@@ -92,30 +92,20 @@ public class MobileBGWatcherFrame extends JFrame {
             }
         });
 
-        int refreshInterval;
-        if (properties.getProperty("refresh_interval") == null) {
-            refreshInterval = 10;
-            Logger_.info("Custom refresh interval not set, defaulting to 10 minutes.");
-        } else {
-            refreshInterval = Integer.parseInt(properties.getProperty("refresh_interval"));
-            Logger_.info("Custom refresh interval set at " + refreshInterval + " minutes.");
-        }
-        new Timer(refreshInterval * 60000, evt -> loadCars()).start();
-
         loadCars();
     }
 
     private void quit() {
         Logger_.info("Exiting..");
-        Logger_.saveLog();
+        if (Boolean.parseBoolean(properties.getProperty("logging_enabled"))){
+            Logger_.saveLog();
+        }
         System.exit(0);
     }
 
     private String getRequest(String modelName) {
         return properties.getProperty(modelName.toLowerCase());
     }
-
-    static int carsFound = 0;
 
     private void loadCars() {
         loadingLabel.setVisible(true);
@@ -152,19 +142,21 @@ public class MobileBGWatcherFrame extends JFrame {
         List<Callable<Void>> tasks = new ArrayList<>();
 
         properties.stringPropertyNames().forEach(modelName -> {
-            tasks.add(() -> {
-                String request = getRequest(modelName);
-                Logger_.info("Getting cars for: " + modelName);
-                Logger_.info("Request: " + request);
-                carsFound = 0;
-                getCars(request, modelName);
-                SwingUtilities.invokeLater(() -> {
-                    loadingPanel.add(new JLabel(modelName + " loaded."));
-                    loadingPanel.revalidate();
-                    loadingPanel.repaint();
+            if (!propertySettings.contains(modelName)) {
+                tasks.add(() -> {
+                    String request = getRequest(modelName);
+                    Logger_.info("Getting cars for: " + modelName);
+                    Logger_.info("Request: " + request);
+                    getCars(request, modelName);
+                    Logger_.info(modelName + " loaded.");
+                    SwingUtilities.invokeLater(() -> {
+                        loadingPanel.add(new JLabel(modelName + " loaded."));
+                        loadingPanel.revalidate();
+                        loadingPanel.repaint();
+                    });
+                    return null;
                 });
-                return null;
-            });
+            }
         });
 
         try {
@@ -218,7 +210,6 @@ public class MobileBGWatcherFrame extends JFrame {
                                 element.select(".price ").text(),
                                 Long.valueOf(advID)
                         ));
-                        carsFound++;
                     } else {
                         Logger_.error("Failed to get car info, check selectors");
                         quit();
@@ -255,8 +246,6 @@ public class MobileBGWatcherFrame extends JFrame {
         try {
 //            Desktop.getDesktop().browse(new URL(url).toURI());
             Document document = callURL(url);
-            String charset = document.charset().name();
-            Logger_.info("Document Charset: " + charset);
             Elements images = document.select("a[class='smallPicturesGallery'] img");
             List<String> imageLinks = new ArrayList<>();
             for (Element image : images) {
@@ -273,9 +262,9 @@ public class MobileBGWatcherFrame extends JFrame {
             Element advertStats = document.selectFirst("div[class='statistiki'] div[class='text']");
             Element advertDescription = document.selectFirst("div[class='moreInfo'] div[class='text']");
             String advertDescriptionText;
-            if(advertDescription != null){
+            if (advertDescription != null) {
                 advertDescriptionText = document.selectFirst("div[class='moreInfo'] div[class='text']").html();
-            }else {
+            } else {
                 advertDescriptionText = "--- NO DESCRIPTION ---";
             }
 
@@ -289,7 +278,7 @@ public class MobileBGWatcherFrame extends JFrame {
 
             Advert advert;
             if (!advertMap.containsKey(url)) {
-                advert = new Advert(imageLinks, advertTitle.text(), carLocation.text(),carPrice.text().split("\\.")[0], advertPhone.text().split(" ")[0], mainCarParamsMap, advertStats.text(), url, advertDescriptionText);
+                advert = new Advert(imageLinks, advertTitle.text(), carLocation.text(), carPrice.text().split("\\.")[0], advertPhone.text().split(" ")[0], mainCarParamsMap, advertStats.text(), url, advertDescriptionText);
                 advertMap.put(url, advert);
             } else {
                 advert = advertMap.get(url);
