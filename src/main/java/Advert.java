@@ -1,18 +1,59 @@
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+import java.io.IOException;
+import java.net.URL;
 import java.util.List;
 import java.util.Map;
 
 public class Advert {
     boolean isFavourite;
-    String advertURL;
-    List<String> imageUrls;
-    String advertTitle;
-    String carLocation;
-    String carPrice;
-    String advertPhone;
+    private String advertURL;
+    private List<String> imageUrls;
+    private String advertTitle;
+    private String carLocation;
+    private String carPrice;
+    private String advertPhone;
     //    String priceHistory;
-    Map<String, String> mainCarParams;
-    String advertStats;
-    String advertDescription;
+    private Map<String, String> mainCarParams;
+    private String advertStats;
+    private String advertDescription;
+    private Long advertNumber;
+    private BufferedImage mainImage;
+
+    public Advert(String imageUrl, String title, String url, String price, Long advNumber, boolean isFavourite) {
+        this.advertTitle = title;
+        this.advertURL = url;
+        this.carPrice = price;
+        this.advertNumber = advNumber;
+        this.mainImage = readImageFromURL(imageUrl);
+        this.isFavourite = isFavourite;
+    }
+
+    private BufferedImage readImageFromURL(String imageUrl) {
+        try {
+            URL url = new URL(imageUrl);
+            return ImageIO.read(url);
+        } catch (IOException e) {
+            Logger_.error("Failed to read image from URL: " + imageUrl);
+            return null;
+        }
+    }
+
+    public Long getAdvertNumber() {
+        return advertNumber;
+    }
+
+    public void setAdvertNumber(Long advertNumber) {
+        this.advertNumber = advertNumber;
+    }
+
+    public BufferedImage getMainImage() {
+        return mainImage;
+    }
+
+    public void setMainImage(BufferedImage mainImage) {
+        this.mainImage = mainImage;
+    }
 
     public boolean isFavourite() {
         return isFavourite;
@@ -36,20 +77,6 @@ public class Advert {
 
     public void setAdvertURL(String advertURL) {
         this.advertURL = advertURL;
-    }
-
-    public Advert(List<String> imageUrls, String advertTitle, String carLocation, String carPrice, String advertPhone /*,String priceHistory */, Map<String, String> mainCarParams, String advertStats, String advertURL, String advertDescription) {
-        this.imageUrls = imageUrls;
-        this.advertTitle = advertTitle;
-        this.carLocation = carLocation;
-        this.carPrice = carPrice;
-        this.advertPhone = advertPhone;
-//        this.priceHistory = priceHistory;
-        this.mainCarParams = mainCarParams;
-        this.advertStats = advertStats;
-        this.advertURL = advertURL;
-        this.advertDescription = advertDescription;
-        this.isFavourite = false;
     }
 
     public String getCarPrice() {

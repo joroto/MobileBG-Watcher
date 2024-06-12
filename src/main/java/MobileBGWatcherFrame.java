@@ -26,9 +26,9 @@ import java.util.regex.Pattern;
 
 public class MobileBGWatcherFrame extends JFrame {
     private final Properties properties;
-    private List<Car> carList;
-    private DefaultListModel<Car> listModel;
-    private JList<Car> carJList;
+    public static List<Advert> advertList;
+    private DefaultListModel<Advert> listModel;
+    private JList<Advert> advertJList;
     private JLabel loadingLabel;
     private JPanel loadingPanel;
     private List<String> propertySettings = List.of("logging_enabled");
@@ -44,25 +44,25 @@ public class MobileBGWatcherFrame extends JFrame {
             Logger_.error(e.getMessage());
             quit();
         }
-        carList = new ArrayList<>();
+        advertList = new ArrayList<>();
         listModel = new DefaultListModel<>();
-        carJList = new JList<>(listModel);
-        carJList.setCellRenderer(new CarInfoCellRenderer());
-        carJList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        advertJList = new JList<>(listModel);
+        advertJList.setCellRenderer(new AdvertInfoCellRenderer());
+        advertJList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 
-        carJList.addMouseListener(new MouseAdapter() {
+        advertJList.addMouseListener(new MouseAdapter() {
             public void mouseClicked(MouseEvent evt) {
                 if (evt.getClickCount() == 2) {
-                    int index = carJList.locationToIndex(evt.getPoint());
-                    openAdvert(listModel.getElementAt(index).getUrl());
+                    int index = advertJList.locationToIndex(evt.getPoint());
+                    openAdvert(listModel.getElementAt(index));
                 }
             }
 
             public void mousePressed(MouseEvent e) {
                 if (SwingUtilities.isRightMouseButton(e)) {
-                    int index = carJList.locationToIndex(e.getPoint());
+                    int index = advertJList.locationToIndex(e.getPoint());
                     try {
-                        Desktop.getDesktop().browse(new URI(listModel.getElementAt(index).getUrl()));
+                        Desktop.getDesktop().browse(new URI(listModel.getElementAt(index).getAdvertURL()));
                     } catch (IOException | URISyntaxException ex) {
                         throw new RuntimeException(ex);
                     }
@@ -97,7 +97,7 @@ public class MobileBGWatcherFrame extends JFrame {
 
     private void quit() {
         Logger_.info("Exiting..");
-        if (Boolean.parseBoolean(properties.getProperty("logging_enabled"))){
+        if (Boolean.parseBoolean(properties.getProperty("logging_enabled"))) {
             Logger_.saveLog();
         }
         System.exit(0);
@@ -109,7 +109,7 @@ public class MobileBGWatcherFrame extends JFrame {
 
     private void loadCars() {
         loadingLabel.setVisible(true);
-        carJList.setVisible(false);
+        advertJList.setVisible(false);
         loadingPanel.removeAll();
         loadingPanel.add(loadingLabel);
 
@@ -124,10 +124,10 @@ public class MobileBGWatcherFrame extends JFrame {
             protected void done() {
                 loadingLabel.setVisible(false);
                 getContentPane().removeAll();
-                getContentPane().add(new JScrollPane(carJList), BorderLayout.CENTER);
+                getContentPane().add(new JScrollPane(advertJList), BorderLayout.CENTER);
                 loadingPanel.removeAll();
                 revalidate();
-                carJList.setVisible(true);
+                advertJList.setVisible(true);
             }
         };
 
@@ -137,8 +137,8 @@ public class MobileBGWatcherFrame extends JFrame {
     List<String> modelsScanned = new ArrayList<>();
 
     private void updateCarInfo() {
-        carList.clear();
-        ExecutorService executorService = Executors.newFixedThreadPool(properties.size()); // Adjust the pool size as needed
+        advertList.clear();
+        ExecutorService executorService = Executors.newFixedThreadPool(properties.size());
         List<Callable<Void>> tasks = new ArrayList<>();
 
         properties.stringPropertyNames().forEach(modelName -> {
@@ -167,11 +167,25 @@ public class MobileBGWatcherFrame extends JFrame {
             Logger_.error("Error in executing tasks: " + e.getMessage());
         }
 
-        carList.sort(Comparator.comparingLong(Car::getAdvN).reversed());
+//        carList.sort(Comparator.comparingLong(Car::getAdvN).reversed());
+        advertList.sort(new AdvertComparator().thenComparing(Comparator.comparingLong(Advert::getAdvertNumber).reversed()));
 
         listModel.clear();
-        for (Car carInfo : carList) {
+        for (Advert carInfo : advertList) {
             listModel.addElement(carInfo);
+        }
+    }
+
+    public class AdvertComparator implements Comparator<Advert> {
+        @Override
+        public int compare(Advert car1, Advert car2) {
+            if (car1.isFavourite() && !car2.isFavourite()) {
+                return -1;
+            } else if (!car1.isFavourite() && car2.isFavourite()) {
+                return 1;
+            } else {
+                return Long.compare(car2.getAdvertNumber(), car1.getAdvertNumber());
+            }
         }
     }
 
@@ -199,17 +213,21 @@ public class MobileBGWatcherFrame extends JFrame {
                     Pattern advPattern = Pattern.compile("(adv=|obiava-)(\\d+)");
                     Matcher matcher = advPattern.matcher(carLink);
                     if (matcher.find()) {
+                        carLink = "https://" + carLink.replaceFirst("//", "");
                         String advID = matcher.group(2);
                         if (advID.startsWith("2")) {
                             advID = 1 + advID.substring(1);
                         }
 
-                        carList.add(new Car(carImageURL,
+                        Advert advert = new Advert(carImageURL,
                                 element.select("div[class='zaglavie'] a").text(),
-                                "https://" + carLink.replaceFirst("//", ""),
+                                carLink,
                                 element.select(".price ").text(),
-                                Long.valueOf(advID)
-                        ));
+                                Long.valueOf(advID), checkUrlInFile(carLink)
+                        );
+
+                        advertList.add(advert);
+
                     } else {
                         Logger_.error("Failed to get car info, check selectors");
                         quit();
@@ -240,22 +258,21 @@ public class MobileBGWatcherFrame extends JFrame {
         }
     }
 
-    Map<String, Advert> advertMap = new HashMap<>();
+    Map<String, Advert> fullyloadedAdvertMap = new HashMap<>();
 
-    private void openAdvert(String url) {
+    private void openAdvert(Advert advertIn) {
         try {
-//            Desktop.getDesktop().browse(new URL(url).toURI());
-            Document document = callURL(url);
+            Document document = callURL(advertIn.getAdvertURL());
             Elements images = document.select("a[class='smallPicturesGallery'] img");
             List<String> imageLinks = new ArrayList<>();
             for (Element image : images) {
                 String src = image.attr("src");
-                imageLinks.add("https:" + insertBig(src));
+                imageLinks.add("https:" + insertStringBefore(src, "big/", "/1/"));
             }
 
-            Element advertTitle = document.selectFirst("div[class='obTitle']");
+//            Element advertTitle = document.selectFirst("div[class='obTitle']");
             Element carLocation = document.selectFirst("div[class='carLocation']");
-            Element carPrice = document.selectFirst("div[class='Price']");
+//            Element carPrice = document.selectFirst("div[class='Price']");
             Element advertPhone = document.selectFirst("div[class='contactsBox'] div[class='phone']");
 //            Element priceHistory = document.selectFirst("div[id='priceHistory']");
             Elements mainCarParams = document.select("div[class='mainCarParams'] div[class*='item']");
@@ -275,19 +292,24 @@ public class MobileBGWatcherFrame extends JFrame {
                 mainCarParamsMap.put(mainCarParam.className().replace("item ", ""), mpLabel + ": " + mpInfo);
             }
 
-
             Advert advert;
-            if (!advertMap.containsKey(url)) {
-                advert = new Advert(imageLinks, advertTitle.text(), carLocation.text(), carPrice.text().split("\\.")[0], advertPhone.text().split(" ")[0], mainCarParamsMap, advertStats.text(), url, advertDescriptionText);
-                advertMap.put(url, advert);
+            if (!fullyloadedAdvertMap.containsKey(advertIn.getAdvertURL())) {
+                advertIn.setImageUrls(imageLinks);
+                advertIn.setAdvertDescription(advertDescriptionText);
+                advertIn.setAdvertStats(advertStats.text());
+                advertIn.setMainCarParams(mainCarParamsMap);
+                advertIn.setAdvertPhone(advertPhone.text());
+                advertIn.setCarLocation(carLocation.text());
+
+
+//                advert = new Advert(imageLinks, advertIn.getAdvertTitle(), carLocation.text(), advertIn.getCarPrice(), advertPhone.text().split(" ")[0], mainCarParamsMap, advertStats.text(), advertIn.getAdvertURL(), advertDescriptionText);
+                advert = advertIn;
+                fullyloadedAdvertMap.put(advertIn.getAdvertURL(), advertIn);
             } else {
-                advert = advertMap.get(url);
+                advert = fullyloadedAdvertMap.get(advertIn.getAdvertURL());
             }
 
-            Advert finalAdvert = advert;
-            SwingUtilities.invokeLater(() -> {
-                new AdvertFrame(finalAdvert).setVisible(true);
-            });
+            SwingUtilities.invokeLater(() -> new AdvertFrame(advert).setVisible(true));
 
         } catch (Exception e) {
             Logger_.error("Could not open browser");
@@ -295,51 +317,91 @@ public class MobileBGWatcherFrame extends JFrame {
         }
     }
 
-    public static String insertBig(String url) {
-        // Locate the position of "/1/"
-        String target = "/1/";
-        int index = url.indexOf(target);
+    public static String insertStringBefore(String str, String strToInsert, String target) {
+        int index = str.indexOf(target);
 
-        // If the substring is found, insert "big/" after it
         if (index != -1) {
-            StringBuilder modifiedUrl = new StringBuilder(url);
-            modifiedUrl.insert(index + target.length(), "big/");
-            return modifiedUrl.toString();
+            StringBuilder modifiedString = new StringBuilder(str);
+            modifiedString.insert(index + target.length(), strToInsert);
+            return modifiedString.toString();
         }
 
-        // Return the original URL if the target substring is not found
-        return url;
+        return str;
     }
 
-    private static class CarInfoCellRenderer extends JPanel implements ListCellRenderer<Car> {
+    private static class AdvertInfoCellRenderer extends JPanel implements ListCellRenderer<Advert> {
         private JLabel imageLabel = new JLabel();
         private JLabel textLabel = new JLabel();
         private JLabel priceLabel = new JLabel();
         private JLabel advLabel = new JLabel();
+        JPanel textPanel = new JPanel(new BorderLayout());
 
-        public CarInfoCellRenderer() {
+        public AdvertInfoCellRenderer() {
             setLayout(new BorderLayout());
             add(imageLabel, BorderLayout.WEST);
-            JPanel textPanel = new JPanel(new BorderLayout());
             textPanel.add(textLabel, BorderLayout.NORTH);
             textPanel.add(priceLabel, BorderLayout.CENTER);
             textPanel.add(advLabel, BorderLayout.SOUTH);
             add(textPanel, BorderLayout.CENTER);
+            setOpaque(true);
         }
 
-        public Component getListCellRendererComponent(JList<? extends Car> list, Car value, int index, boolean isSelected, boolean cellHasFocus) {
-            BufferedImage image = value.getImage();
+        public Component getListCellRendererComponent(JList<? extends Advert> list, Advert value, int index, boolean isSelected, boolean cellHasFocus) {
+            BufferedImage image = value.getMainImage();
             int targetWidth = 200;
             int targetHeight = (int) ((double) targetWidth / image.getWidth() * image.getHeight());
 
             Image scaledImage = image.getScaledInstance(targetWidth, targetHeight, Image.SCALE_SMOOTH);
             imageLabel.setIcon(new ImageIcon(scaledImage));
             textLabel.setText(
-                    "<html>" + value.getTitle() +
-                            "<br> Price: " + value.getPrice() +
-                            "<br> Adv: " + value.getAdvN() + "</html>");
+                    "<html>" + value.getAdvertTitle() +
+                            "<br> Price: " + value.getCarPrice() +
+                            "<br> Adv: " + value.getAdvertNumber() + "</html>");
+
+            if (value.isFavourite()) {
+                setBackground(Color.ORANGE);
+                repaint();
+            } else {
+                setBackground(list.getBackground());
+            }
+
+            if (checkUrlInFile(value.getAdvertURL())) {
+                setBackground(Color.ORANGE);
+            } else {
+                setBackground(list.getBackground());
+                repaint();
+            }
+
+            textPanel.setOpaque(false);
+            imageLabel.setOpaque(false);
+            textLabel.setOpaque(false);
+            priceLabel.setOpaque(false);
+            advLabel.setOpaque(false);
 
             return this;
         }
+    }
+
+    public static boolean checkUrlInFile(String urlToCheck) {
+        String filePath = "favourites.txt";
+
+        File file = new File(filePath);
+
+        if (file.exists()) {
+            try (BufferedReader bufferedReader = new BufferedReader(new FileReader(file))) {
+                String line;
+                while ((line = bufferedReader.readLine()) != null) {
+                    if (line.equals(urlToCheck)) {
+                        return true;
+                    }
+                }
+            } catch (IOException e) {
+                Logger_.error(e.getMessage());
+            }
+        } else {
+            Logger_.info("Favourite file does not exist.");
+        }
+
+        return false;
     }
 }
