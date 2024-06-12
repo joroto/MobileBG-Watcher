@@ -209,12 +209,12 @@ public class AdvertFrame extends JFrame {
         reader.close();
 
         if (!inputFile.delete()) {
-            System.out.println("Could not delete the original file.");
+            Logger_.error("Could not delete the original file.");
             return;
         }
 
         if (!tempFile.renameTo(inputFile)) {
-            System.out.println("Could not rename the temporary file.");
+            Logger_.error("Could not rename the temporary file.");
         }
     }
 

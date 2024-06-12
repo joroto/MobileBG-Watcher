@@ -21,7 +21,7 @@ public class ZoomedFrame extends JFrame {
             zoomedImage = zoomImage(originalImage, zoomFactor);
             initializeUI();
         } catch (IOException ex) {
-            ex.printStackTrace();
+            Logger_.error(ex.getMessage());
             JOptionPane.showMessageDialog(null, "Error loading image: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
