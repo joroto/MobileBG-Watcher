@@ -8,6 +8,7 @@ import java.util.Properties;
 
 public class Utils {
     private static final Properties properties = new Properties();
+
     public static boolean checkUrlInFavouritesFile(String urlToCheck) {
         String filePath = "favourites.txt";
 
@@ -46,13 +47,30 @@ public class Utils {
         return properties.getProperty(modelName.toLowerCase());
     }
 
-    public static void loadProperties(){
-        try {
-            FileInputStream input = new FileInputStream("car_requests.properties");
+    public static void loadProperties() {
+        File file = new File("car_requests.properties");
+
+        if (!file.exists()) {
+            Logger_.warn("car_requests.properties file does not exist! Creating default one... Please edit it with your desired filters");
+            createDefaultProperties(file);
+        }
+
+        try (FileInputStream input = new FileInputStream(file)) {
             properties.load(input);
-            input.close();
         } catch (IOException e) {
-            Logger_.error("NO car_requests.properties FILE FOUND, PLEASE CREATE IT.");
+            Logger_.error("Error loading car_requests.properties file.");
+            Logger_.error(e.getMessage());
+            quit();
+        }
+    }
+
+    private static void createDefaultProperties(File file) {
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(file))) {
+            writer.write("vw_golf=https://www.mobile.bg/obiavi/avtomobili-dzhipove/vw/golf/benzinov/rachna/oblast-sofiya?sort=6\n");
+            writer.write("toyota_yaris=https://www.mobile.bg/obiavi/avtomobili-dzhipove/toyota/yaris/benzinov/rachna/oblast-sofiya?sort=6\n");
+            Logger_.info("Created default car_requests.properties file.");
+        } catch (IOException e) {
+            Logger_.error("Failed to create car_requests.properties file.");
             Logger_.error(e.getMessage());
             quit();
         }
@@ -66,7 +84,7 @@ public class Utils {
         System.exit(0);
     }
 
-    public static Properties getProperties(){
+    public static Properties getProperties() {
         return properties;
     }
 

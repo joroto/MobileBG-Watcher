@@ -1,3 +1,4 @@
+import javax.swing.*;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -12,6 +13,7 @@ public abstract class Logger_ {
 
     public static void warn(String logMessage) {
         appendToLog("[WARN]", logMessage);
+        Utils.showMessage(logMessage, "WARNING", JOptionPane.WARNING_MESSAGE);
     }
 
     public static void info(String logMessage) {
@@ -23,7 +25,7 @@ public abstract class Logger_ {
         Utils.showMessage(logMessage, "ERROR", javax.swing.JOptionPane.ERROR_MESSAGE);
     }
 
-    private static void appendToLog(String logLevel, String logMessage){
+    private static void appendToLog(String logLevel, String logMessage) {
         now = LocalDateTime.now();
         String message = logLevel + " " + dtf.format(now) + " - " + logMessage + System.lineSeparator();
         log.append(message);
@@ -46,19 +48,19 @@ public abstract class Logger_ {
             info("Folder for logs found.");
         }
 
-        File file = new File(currentDirectory + "\\LOGS\\" + "CarWatcher_LOG_" +System.currentTimeMillis() + "");
+        File file = new File(currentDirectory + "\\LOGS\\" + "CarWatcher_LOG_" + System.currentTimeMillis() + "");
         try {
             FileWriter myWriter = new FileWriter(file);
             myWriter.write(String.valueOf(log));
             myWriter.close();
             Logger_.info("Log saved to " + file.getPath());
-        }catch (IOException ex){
+        } catch (IOException ex) {
             Logger_.error("Could not save log.");
             Logger_.error(ex.getMessage());
         }
     }
 
-    public static StringBuilder getLog(){
+    public static StringBuilder getLog() {
         return log;
     }
 }

@@ -28,7 +28,7 @@ Requires Java 16 or higher!
 4. Copy the link you are redirected to.
 5. Create a file named <code>car_requests.properties</code> in the same directory where you have the JAR file, open it with Notepad or similar text editor and set its content to: a variable (you may put model and brand for easier management, but it does not matter what exactly it is) that equals (=) the link you were on, like this:<br>
    <image src='https://i.imgur.com/bF2Bkbr.png'></image>
-   **<br>(You can skip this and launch the app, but the first time it will not start correctly, as it has no data for cars, but it will auto-generate the file which you can edit later)**
+   **<br>(You can skip this and launch the app, but the first time it will show you a warning and will auto-generate the file with some default cars)**
 6. Double-click the JAR file to start the tool.
 
 #### To have multiple active filters you add lines to the <code>car_requests.properties</code> file exactly the same way you did the first car model<br>
