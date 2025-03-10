@@ -205,7 +205,7 @@ public class MobileBGWatcherFrame extends JFrame {
         try {
             Document document = callURL(reqBody);
 //                System.out.println(document.toString() + " HTML");
-            Elements elements = document.select("form[name='search'] div[class*='item']");
+            Elements elements = document.select("form[name='search'] div[class*='item'][id]");
             for (Element element : elements) {
                 String carImageURL = "https:" + element.select("img[class='pic']").attr("src");
                 if (!carImageURL.contains("/no.gif") && (carImageURL.contains("cdn") || carImageURL.contains("mobistatic"))) {
@@ -220,7 +220,7 @@ public class MobileBGWatcherFrame extends JFrame {
                         }
 
                         Advert advert = new Advert(carImageURL,
-                                element.select("div[class='zaglavie'] a").text(),
+                                element.select("a[class*='title']").text(),
                                 carLink,
                                 element.select(".price ").text(),
                                 Long.valueOf(advID), checkUrlInFile(carLink)
@@ -263,11 +263,12 @@ public class MobileBGWatcherFrame extends JFrame {
     private void openAdvert(Advert advertIn) {
         try {
             Document document = callURL(advertIn.getAdvertURL());
-            Elements images = document.select("a[class='smallPicturesGallery'] img");
+//            System.out.println(document + " DOC");
+            Elements images = document.select("#owlcarousel img");
             List<String> imageLinks = new ArrayList<>();
             for (Element image : images) {
-                String src = image.attr("src");
-                imageLinks.add("https:" + insertStringBefore(src, "big/", "/1/"));
+                String src = image.attr("data-src");
+                imageLinks.add(src);
             }
 
 //            Element advertTitle = document.selectFirst("div[class='obTitle']");

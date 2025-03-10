@@ -1,9 +1,11 @@
+import javax.imageio.ImageIO;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.image.BufferedImage;
 import java.io.*;
 import java.net.URISyntaxException;
 import java.net.URL;
@@ -11,17 +13,20 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 public class AdvertFrame extends JFrame {
     List<String> imageUrls;
+    Map<Integer, BufferedImage> loadedImages;
     private JLabel imageLabel;
     private int currentIndex = 0;
     JPanel infoPanel;
 
     public AdvertFrame(Advert advert) {
         imageUrls = advert.getImageUrls();
+        loadedImages = new HashMap<>();
         setTitle(advert.getAdvertTitle());
         setSize(1200, 600);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -49,6 +54,7 @@ public class AdvertFrame extends JFrame {
         previousPictureButton.addActionListener(e -> {
             currentIndex = (currentIndex - 1 + imageUrls.size()) % imageUrls.size();
             updateImage();
+            prefetchPreviousImage();
         });
         imagePanel.add(previousPictureButton, BorderLayout.WEST);
 
@@ -56,6 +62,7 @@ public class AdvertFrame extends JFrame {
         nextPictureButton.addActionListener(e -> {
             currentIndex = (currentIndex + 1) % imageUrls.size();
             updateImage();
+            prefetchNextImage();
         });
         imagePanel.add(nextPictureButton, BorderLayout.EAST);
 
@@ -177,6 +184,8 @@ public class AdvertFrame extends JFrame {
         requestFocusInWindow();
 
         add(buttonPanel, BorderLayout.SOUTH);
+        prefetchNextImage();
+        prefetchPreviousImage();
     }
 
     private void openZoomedFrame() {
@@ -222,20 +231,123 @@ public class AdvertFrame extends JFrame {
         infoPanel.add(Box.createRigidArea(new Dimension(0, 15)));
     }
 
-    private int maxImageHeight = 0;
+    private void prefetchNextImage() {
+        int prefetchIndex = (currentIndex + 1) % imageUrls.size();
+        if (!loadedImages.containsKey(prefetchIndex)) {
+            Logger_.info("Prefetching next image: " + prefetchIndex + " " + imageUrls.get(prefetchIndex));
+            SwingWorker<BufferedImage, Void> worker = new SwingWorker<>() {
+                @Override
+                protected BufferedImage doInBackground() {
+                    try {
+                        URL url = new URL(imageUrls.get(prefetchIndex));
+                        return ImageIO.read(url); // Downloads image in the background
+                    } catch (Exception e) {
+                        Logger_.error("Failed to prefetch image: " + e.getMessage());
+                        return null;
+                    }
+                }
+
+                @Override
+                protected void done() {
+                    try {
+                        BufferedImage img = get();
+                        if (img != null) {
+                            loadedImages.put(prefetchIndex, img);
+                            Logger_.info("Prefetched next image: " + prefetchIndex + " stored.");
+                        }
+                    } catch (Exception e) {
+                        Logger_.error("Error storing prefetched image: " + e.getMessage());
+                    }
+                }
+            };
+
+            worker.execute();
+        }
+    }
+
+    private void prefetchPreviousImage() {
+        int prefetchIndex = (currentIndex - 1 + imageUrls.size()) % imageUrls.size();
+
+        if (!loadedImages.containsKey(prefetchIndex)) {
+            Logger_.info("Prefetching previous image: " + prefetchIndex + " " + imageUrls.get(prefetchIndex));
+
+            SwingWorker<BufferedImage, Void> worker = new SwingWorker<>() {
+                @Override
+                protected BufferedImage doInBackground() {
+                    try {
+                        URL url = new URL(imageUrls.get(prefetchIndex));
+                        return ImageIO.read(url);
+                    } catch (Exception e) {
+                        Logger_.error("Failed to prefetch previous image: " + e.getMessage());
+                        return null;
+                    }
+                }
+
+                @Override
+                protected void done() {
+                    try {
+                        BufferedImage img = get();
+                        if (img != null) {
+                            loadedImages.put(prefetchIndex, img);
+                            Logger_.info("Prefetched previous image: " + prefetchIndex + " stored.");
+                        }
+                    } catch (Exception e) {
+                        Logger_.error("Error storing prefetched previous image: " + e.getMessage());
+                    }
+                }
+            };
+
+            worker.execute();
+        }
+    }
+
     private void updateImage() {
         try {
-            URL url = new URL(imageUrls.get(currentIndex));
-            ImageIcon imageIcon = new ImageIcon(url);
-            imageLabel.setIcon(imageIcon);
-
-            int currentImageHeight = imageIcon.getIconHeight();
-            if (currentImageHeight > maxImageHeight) {
-                maxImageHeight = currentImageHeight;
-                setSize(1200, maxImageHeight + 100);
+            BufferedImage img;
+            if (loadedImages.containsKey(currentIndex)) {
+                Logger_.info("Using prefetched image: " + currentIndex);
+                img = loadedImages.get(currentIndex);
+            }
+            // On first start, and if the prefetch fails for some reason
+            else {
+                Logger_.info("Downloading image: " + currentIndex);
+                URL url = new URL(imageUrls.get(currentIndex));
+                img = ImageIO.read(url);
+                // Store images so we do not need to wait for fetch again as they are quite big
+                loadedImages.put(currentIndex, img);
             }
 
+            if (img == null) {
+                Logger_.error("Failed to load image.");
+                imageLabel.setText("Failed to load image.");
+                return;
+            }
+
+            // Make sure the image fits within the frame
+            int maxWidth = 800;
+            int maxHeight = 500;
+
+            // Get original image dimensions
+            int imgWidth = img.getWidth();
+            int imgHeight = img.getHeight();
+
+            // Do some magic to calculate the scaling factor to maintain aspect ratio
+            double widthRatio = (double) maxWidth / imgWidth;
+            double heightRatio = (double) maxHeight / imgHeight;
+            double scaleFactor = Math.min(widthRatio, heightRatio);
+
+            int newWidth = (int) (imgWidth * scaleFactor);
+            int newHeight = (int) (imgHeight * scaleFactor);
+
+            // Resize the image
+            Image scaledImage = img.getScaledInstance(newWidth, newHeight, Image.SCALE_SMOOTH);
+            ImageIcon scaledIcon = new ImageIcon(scaledImage);
+            imageLabel.setIcon(scaledIcon);
+
+            // Remove error if set
+            imageLabel.setText("");
             revalidate();
+            repaint();
         } catch (Exception e) {
             Logger_.error(e.getMessage());
             imageLabel.setText("Failed to load image");
