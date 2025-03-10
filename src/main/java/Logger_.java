@@ -20,6 +20,7 @@ public abstract class Logger_ {
 
     public static void error(String logMessage) {
         appendToLog("[ERR]", logMessage);
+        Utils.showMessage(logMessage, "ERROR", javax.swing.JOptionPane.ERROR_MESSAGE);
     }
 
     private static void appendToLog(String logLevel, String logMessage){

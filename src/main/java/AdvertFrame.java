@@ -9,15 +9,14 @@ import java.awt.image.BufferedImage;
 import java.io.*;
 import java.net.URISyntaxException;
 import java.net.URL;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class AdvertFrame extends JFrame {
+    private ExecutorService executorService; // Thread pool for prefetching
     List<String> imageUrls;
     Map<Integer, BufferedImage> loadedImages;
     private JLabel imageLabel;
@@ -27,6 +26,7 @@ public class AdvertFrame extends JFrame {
     public AdvertFrame(Advert advert) {
         imageUrls = advert.getImageUrls();
         loadedImages = new HashMap<>();
+        executorService = Executors.newFixedThreadPool(2); // You can adjust the pool size based on the number of images you want to preload
         setTitle(advert.getAdvertTitle());
         setSize(1200, 600);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -54,7 +54,6 @@ public class AdvertFrame extends JFrame {
         previousPictureButton.addActionListener(e -> {
             currentIndex = (currentIndex - 1 + imageUrls.size()) % imageUrls.size();
             updateImage();
-            prefetchPreviousImage();
         });
         imagePanel.add(previousPictureButton, BorderLayout.WEST);
 
@@ -62,7 +61,6 @@ public class AdvertFrame extends JFrame {
         nextPictureButton.addActionListener(e -> {
             currentIndex = (currentIndex + 1) % imageUrls.size();
             updateImage();
-            prefetchNextImage();
         });
         imagePanel.add(nextPictureButton, BorderLayout.EAST);
 
@@ -129,40 +127,11 @@ public class AdvertFrame extends JFrame {
 
         favouriteAdvertButton.addActionListener(e -> {
             if (!advert.isFavourite) {
-                advert.setFavourite(true);
-                String filePath = "favourites.txt";
-
-                Path path = Paths.get(filePath);
-                boolean fileExists = Files.exists(path);
-
-                try {
-                    if (fileExists) {
-                        Files.write(path, (advert.getAdvertURL() + System.lineSeparator()).getBytes(), StandardOpenOption.APPEND);
-                        Logger_.info(advert.getAdvertURL() + " appended to favourites file.");
-                    } else {
-                        Files.write(path, (advert.getAdvertURL() + System.lineSeparator()).getBytes(), StandardOpenOption.CREATE);
-                        Logger_.info("Favourites file created.");
-                        Logger_.info(advert.getAdvertURL() + " appended to favourites file.");
-                    }
-                } catch (IOException ex) {
-                    Logger_.error(ex.getMessage());
-                }
-
+                advert.addToFavourites();
                 favouriteAdvertButton.setBackground(new Color(198, 174, 61));
-                Logger_.info("Advert " + advert.getAdvertURL() + " added to favourites");
             } else {
-                advert.setFavourite(false);
-
-                try {
-                    removeLineFromFile("favourites.txt", advert.getAdvertURL());
-                    Logger_.info(advert.getAdvertURL() + " removed from favourites file.");
-                } catch (IOException ex) {
-                    throw new RuntimeException(ex);
-                }
-
-                advert.setFavourite(false);
+                advert.removeFromFavourites();
                 favouriteAdvertButton.setBackground(background);
-                Logger_.info("Advert " + advert.getAdvertTitle() + " removed from favourites");
             }
         });
 
@@ -184,15 +153,19 @@ public class AdvertFrame extends JFrame {
         requestFocusInWindow();
 
         add(buttonPanel, BorderLayout.SOUTH);
-        prefetchNextImage();
-        prefetchPreviousImage();
     }
 
     private void openZoomedFrame() {
         try {
-            URL url = new URL(imageUrls.get(currentIndex));
-
-            new ZoomedFrame(new URL(url.toString().replace("big/", "big1/")));
+            BufferedImage image;
+            // Should always be loaded, else is just in case
+            if (loadedImages.containsKey(currentIndex)) {
+                image = loadedImages.get(currentIndex);
+            } else {
+                Logger_.error("Downloading image for zoom in, check why it is not already loaded!");
+                image = ImageIO.read(new URL(imageUrls.get(currentIndex)));
+            }
+            new ZoomedFrame(image);
         } catch (Exception ex) {
             Logger_.error(ex.getMessage());
         }
@@ -200,7 +173,7 @@ public class AdvertFrame extends JFrame {
 
     public static void removeLineFromFile(String filePath, String urlToRemove) throws IOException {
         File inputFile = new File(filePath);
-        File tempFile = new File("temp.txt");
+        File tempFile = new File("temp_favourites.txt");
 
         BufferedReader reader = new BufferedReader(new FileReader(inputFile));
         BufferedWriter writer = new BufferedWriter(new FileWriter(tempFile));
@@ -218,12 +191,12 @@ public class AdvertFrame extends JFrame {
         reader.close();
 
         if (!inputFile.delete()) {
-            Logger_.error("Could not delete the original file.");
+            Logger_.error("Could not delete the original favourites file.");
             return;
         }
 
         if (!tempFile.renameTo(inputFile)) {
-            Logger_.error("Could not rename the temporary file.");
+            Logger_.error("Could not rename the temporary favourites file.");
         }
     }
 
@@ -231,73 +204,28 @@ public class AdvertFrame extends JFrame {
         infoPanel.add(Box.createRigidArea(new Dimension(0, 15)));
     }
 
-    private void prefetchNextImage() {
-        int prefetchIndex = (currentIndex + 1) % imageUrls.size();
-        if (!loadedImages.containsKey(prefetchIndex)) {
-            Logger_.info("Prefetching next image: " + prefetchIndex + " " + imageUrls.get(prefetchIndex));
-            SwingWorker<BufferedImage, Void> worker = new SwingWorker<>() {
-                @Override
-                protected BufferedImage doInBackground() {
-                    try {
-                        URL url = new URL(imageUrls.get(prefetchIndex));
-                        return ImageIO.read(url); // Downloads image in the background
-                    } catch (Exception e) {
-                        Logger_.error("Failed to prefetch image: " + e.getMessage());
-                        return null;
-                    }
-                }
+    private void prefetchImages() {
+        // Calculate previous and next indices
+        int previousIndex = (currentIndex - 1 + imageUrls.size()) % imageUrls.size();
+        int nextIndex = (currentIndex + 1) % imageUrls.size();
 
-                @Override
-                protected void done() {
-                    try {
-                        BufferedImage img = get();
-                        if (img != null) {
-                            loadedImages.put(prefetchIndex, img);
-                            Logger_.info("Prefetched next image: " + prefetchIndex + " stored.");
-                        }
-                    } catch (Exception e) {
-                        Logger_.error("Error storing prefetched image: " + e.getMessage());
-                    }
-                }
-            };
-
-            worker.execute();
-        }
+        // Fetch both previous and next images in parallel
+        executorService.submit(() -> prefetchImage(previousIndex));
+        executorService.submit(() -> prefetchImage(nextIndex));
     }
 
-    private void prefetchPreviousImage() {
-        int prefetchIndex = (currentIndex - 1 + imageUrls.size()) % imageUrls.size();
-
-        if (!loadedImages.containsKey(prefetchIndex)) {
-            Logger_.info("Prefetching previous image: " + prefetchIndex + " " + imageUrls.get(prefetchIndex));
-
-            SwingWorker<BufferedImage, Void> worker = new SwingWorker<>() {
-                @Override
-                protected BufferedImage doInBackground() {
-                    try {
-                        URL url = new URL(imageUrls.get(prefetchIndex));
-                        return ImageIO.read(url);
-                    } catch (Exception e) {
-                        Logger_.error("Failed to prefetch previous image: " + e.getMessage());
-                        return null;
-                    }
+    private void prefetchImage(int index) {
+        if (!loadedImages.containsKey(index)) {
+            try {
+                URL url = new URL(imageUrls.get(index));
+                BufferedImage img = ImageIO.read(url);
+                if (img != null) {
+                    loadedImages.put(index, img);
+                    Logger_.info("Prefetched image " + index);
                 }
-
-                @Override
-                protected void done() {
-                    try {
-                        BufferedImage img = get();
-                        if (img != null) {
-                            loadedImages.put(prefetchIndex, img);
-                            Logger_.info("Prefetched previous image: " + prefetchIndex + " stored.");
-                        }
-                    } catch (Exception e) {
-                        Logger_.error("Error storing prefetched previous image: " + e.getMessage());
-                    }
-                }
-            };
-
-            worker.execute();
+            } catch (Exception e) {
+                Logger_.error("Failed to prefetch image " + index);
+            }
         }
     }
 
@@ -326,21 +254,8 @@ public class AdvertFrame extends JFrame {
             // Make sure the image fits within the frame
             int maxWidth = 800;
             int maxHeight = 500;
+            Image scaledImage = scaleImage(img, maxWidth, maxHeight);
 
-            // Get original image dimensions
-            int imgWidth = img.getWidth();
-            int imgHeight = img.getHeight();
-
-            // Do some magic to calculate the scaling factor to maintain aspect ratio
-            double widthRatio = (double) maxWidth / imgWidth;
-            double heightRatio = (double) maxHeight / imgHeight;
-            double scaleFactor = Math.min(widthRatio, heightRatio);
-
-            int newWidth = (int) (imgWidth * scaleFactor);
-            int newHeight = (int) (imgHeight * scaleFactor);
-
-            // Resize the image
-            Image scaledImage = img.getScaledInstance(newWidth, newHeight, Image.SCALE_SMOOTH);
             ImageIcon scaledIcon = new ImageIcon(scaledImage);
             imageLabel.setIcon(scaledIcon);
 
@@ -348,9 +263,26 @@ public class AdvertFrame extends JFrame {
             imageLabel.setText("");
             revalidate();
             repaint();
+            prefetchImages();
         } catch (Exception e) {
+            Logger_.error("Failed to load image");
             Logger_.error(e.getMessage());
             imageLabel.setText("Failed to load image");
         }
+    }
+
+    private Image scaleImage(BufferedImage img, int maxWidth, int maxHeight) {
+        // Do some magic to calculate the scaling factor to maintain aspect ratio
+        int imgWidth = img.getWidth();
+        int imgHeight = img.getHeight();
+
+        double widthRatio = (double) maxWidth / imgWidth;
+        double heightRatio = (double) maxHeight / imgHeight;
+        double scaleFactor = Math.min(widthRatio, heightRatio);
+
+        int newWidth = (int) (imgWidth * scaleFactor);
+        int newHeight = (int) (imgHeight * scaleFactor);
+
+        return img.getScaledInstance(newWidth, newHeight, Image.SCALE_SMOOTH);
     }
 }

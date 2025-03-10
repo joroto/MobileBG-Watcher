@@ -2,9 +2,6 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
 import java.awt.image.BufferedImage;
-import java.io.IOException;
-import java.net.URL;
-import javax.imageio.ImageIO;
 
 public class ZoomedFrame extends JFrame {
     private BufferedImage originalImage;
@@ -15,15 +12,10 @@ public class ZoomedFrame extends JFrame {
     private Point initialClick;
     private Point imagePosition = new Point(0, 0);
 
-    public ZoomedFrame(URL imageUrl) {
-        try {
-            originalImage = ImageIO.read(imageUrl);
-            zoomedImage = zoomImage(originalImage, zoomFactor);
-            initializeUI();
-        } catch (IOException ex) {
-            Logger_.error(ex.getMessage());
-            JOptionPane.showMessageDialog(null, "Error loading image: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-        }
+    public ZoomedFrame(BufferedImage image) {
+        originalImage = image;
+        zoomedImage = zoomImage(image, zoomFactor);
+        initializeUI();
     }
 
     private void initializeUI() {

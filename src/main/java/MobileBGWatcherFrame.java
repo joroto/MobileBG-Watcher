@@ -1,4 +1,3 @@
-import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
@@ -13,10 +12,8 @@ import java.awt.image.BufferedImage;
 import java.io.*;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.net.URL;
 import java.util.*;
 import java.util.List;
-import java.util.Properties;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -25,7 +22,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class MobileBGWatcherFrame extends JFrame {
-    private final Properties properties;
     public static List<Advert> advertList;
     private DefaultListModel<Advert> listModel;
     private JList<Advert> advertJList;
@@ -34,16 +30,7 @@ public class MobileBGWatcherFrame extends JFrame {
     private List<String> propertySettings = List.of("logging_enabled");
 
     public MobileBGWatcherFrame() {
-        this.properties = new Properties();
-        try {
-            FileInputStream input = new FileInputStream("car_requests.properties");
-            properties.load(input);
-            input.close();
-        } catch (IOException e) {
-            Logger_.error("NO car_requests.properties FILE FOUND, PLEASE CREATE IT.");
-            Logger_.error(e.getMessage());
-            quit();
-        }
+        Utils.loadProperties();
         advertList = new ArrayList<>();
         listModel = new DefaultListModel<>();
         advertJList = new JList<>(listModel);
@@ -88,23 +75,11 @@ public class MobileBGWatcherFrame extends JFrame {
         addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosing(WindowEvent e) {
-                quit();
+                Utils.quit();
             }
         });
 
         loadCars();
-    }
-
-    private void quit() {
-        Logger_.info("Exiting..");
-        if (Boolean.parseBoolean(properties.getProperty("logging_enabled"))) {
-            Logger_.saveLog();
-        }
-        System.exit(0);
-    }
-
-    private String getRequest(String modelName) {
-        return properties.getProperty(modelName.toLowerCase());
     }
 
     private void loadCars() {
@@ -138,13 +113,13 @@ public class MobileBGWatcherFrame extends JFrame {
 
     private void updateCarInfo() {
         advertList.clear();
-        ExecutorService executorService = Executors.newFixedThreadPool(properties.size());
+        ExecutorService executorService = Executors.newFixedThreadPool(Utils.getProperties().size());
         List<Callable<Void>> tasks = new ArrayList<>();
 
-        properties.stringPropertyNames().forEach(modelName -> {
+        Utils.getProperties().stringPropertyNames().forEach(modelName -> {
             if (!propertySettings.contains(modelName)) {
                 tasks.add(() -> {
-                    String request = getRequest(modelName);
+                    String request = Utils.getRequestFromPropertiesFile(modelName);
                     Logger_.info("Getting cars for: " + modelName);
                     Logger_.info("Request: " + request);
                     getCars(request, modelName);
@@ -189,21 +164,9 @@ public class MobileBGWatcherFrame extends JFrame {
         }
     }
 
-    private Document callURL(String urlIn) {
-        Document document = null;
-
-        try {
-            document = Jsoup.parse(new URL(urlIn).openStream(), "Windows-1251", urlIn);
-        } catch (IOException e) {
-            Logger_.error(e.getMessage());
-        }
-
-        return document;
-    }
-
     private void getCars(String reqBody, String modelName) {
         try {
-            Document document = callURL(reqBody);
+            Document document = Utils.callURL(reqBody);
 //                System.out.println(document.toString() + " HTML");
             Elements elements = document.select("form[name='search'] div[class*='item'][id]");
             for (Element element : elements) {
@@ -222,15 +185,14 @@ public class MobileBGWatcherFrame extends JFrame {
                         Advert advert = new Advert(carImageURL,
                                 element.select("a[class*='title']").text(),
                                 carLink,
-                                element.select(".price ").text(),
-                                Long.valueOf(advID), checkUrlInFile(carLink)
+                                element.select(".price ").text().split(" лв.")[0] + " лв.",
+                                Long.valueOf(advID), Utils.checkUrlInFavouritesFile(carLink)
                         );
 
                         advertList.add(advert);
-
                     } else {
                         Logger_.error("Failed to get car info, check selectors");
-                        quit();
+                        Utils.quit();
                     }
                 }
             }
@@ -238,23 +200,12 @@ public class MobileBGWatcherFrame extends JFrame {
             if (!modelsScanned.contains(modelName)) {
                 // Go to page 2 and fetch cars also
                 modelsScanned.add(modelName);
-                getCars(insertTextBeforeQuestionMark(reqBody, "/p-2", '?'), modelName);
+                getCars(Utils.insertTextBeforeQuestionMark(reqBody, "/p-2", '?'), modelName);
             }
         } catch (Exception e) {
             Logger_.error("getCars() request failed.");
             Logger_.error(e.getMessage());
-            quit();
-        }
-    }
-
-    public static String insertTextBeforeQuestionMark(String originalString, String textToInsert, char beforeChar) {
-        int index = originalString.indexOf(beforeChar);
-        if (index != -1) {
-            String beforeQuestionMark = originalString.substring(0, index);
-            String afterQuestionMark = originalString.substring(index);
-            return beforeQuestionMark + textToInsert + afterQuestionMark;
-        } else {
-            return "No " + beforeChar + " found in the original string.";
+            Utils.quit();
         }
     }
 
@@ -262,7 +213,7 @@ public class MobileBGWatcherFrame extends JFrame {
 
     private void openAdvert(Advert advertIn) {
         try {
-            Document document = callURL(advertIn.getAdvertURL());
+            Document document = Utils.callURL(advertIn.getAdvertURL());
 //            System.out.println(document + " DOC");
             Elements images = document.select("#owlcarousel img");
             List<String> imageLinks = new ArrayList<>();
@@ -302,7 +253,6 @@ public class MobileBGWatcherFrame extends JFrame {
                 advertIn.setAdvertPhone(advertPhone.text());
                 advertIn.setCarLocation(carLocation.text());
 
-
 //                advert = new Advert(imageLinks, advertIn.getAdvertTitle(), carLocation.text(), advertIn.getCarPrice(), advertPhone.text().split(" ")[0], mainCarParamsMap, advertStats.text(), advertIn.getAdvertURL(), advertDescriptionText);
                 advert = advertIn;
                 fullyloadedAdvertMap.put(advertIn.getAdvertURL(), advertIn);
@@ -316,18 +266,6 @@ public class MobileBGWatcherFrame extends JFrame {
             Logger_.error("Could not open browser");
             Logger_.error(e.getMessage());
         }
-    }
-
-    public static String insertStringBefore(String str, String strToInsert, String target) {
-        int index = str.indexOf(target);
-
-        if (index != -1) {
-            StringBuilder modifiedString = new StringBuilder(str);
-            modifiedString.insert(index + target.length(), strToInsert);
-            return modifiedString.toString();
-        }
-
-        return str;
     }
 
     private static class AdvertInfoCellRenderer extends JPanel implements ListCellRenderer<Advert> {
@@ -366,7 +304,7 @@ public class MobileBGWatcherFrame extends JFrame {
                 setBackground(list.getBackground());
             }
 
-            if (checkUrlInFile(value.getAdvertURL())) {
+            if (Utils.checkUrlInFavouritesFile(value.getAdvertURL())) {
                 setBackground(Color.ORANGE);
             } else {
                 setBackground(list.getBackground());
@@ -381,28 +319,5 @@ public class MobileBGWatcherFrame extends JFrame {
 
             return this;
         }
-    }
-
-    public static boolean checkUrlInFile(String urlToCheck) {
-        String filePath = "favourites.txt";
-
-        File file = new File(filePath);
-
-        if (file.exists()) {
-            try (BufferedReader bufferedReader = new BufferedReader(new FileReader(file))) {
-                String line;
-                while ((line = bufferedReader.readLine()) != null) {
-                    if (line.equals(urlToCheck)) {
-                        return true;
-                    }
-                }
-            } catch (IOException e) {
-                Logger_.error(e.getMessage());
-            }
-        } else {
-            Logger_.info("Favourite file does not exist.");
-        }
-
-        return false;
     }
 }
