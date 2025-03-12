@@ -4,12 +4,24 @@ import org.jsoup.nodes.Document;
 import javax.swing.*;
 import java.io.*;
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Properties;
 
 public class Utils {
     private static final Properties properties = new Properties();
+    private static final List<String> favourites = new ArrayList<>();
 
-    public static boolean checkUrlInFavouritesFile(String urlToCheck) {
+    public static boolean checkUrlInFavourites(String url) {
+        if (favourites.contains(url)) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    public static void loadFavourites() {
+        Logger_.info("Loading favourites list..");
         String filePath = "favourites.txt";
 
         File file = new File(filePath);
@@ -18,18 +30,16 @@ public class Utils {
             try (BufferedReader bufferedReader = new BufferedReader(new FileReader(file))) {
                 String line;
                 while ((line = bufferedReader.readLine()) != null) {
-                    if (line.equals(urlToCheck)) {
-                        return true;
-                    }
+                    favourites.add(line);
                 }
+                Logger_.info("Favourites list loaded:");
+                Logger_.info(String.valueOf(favourites));
             } catch (IOException e) {
                 Logger_.error(e.getMessage());
             }
         } else {
             Logger_.info("Favourite file does not exist.");
         }
-
-        return false;
     }
 
     public static String insertTextBeforeQuestionMark(String originalString, String textToInsert, char beforeChar) {

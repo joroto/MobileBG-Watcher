@@ -171,35 +171,6 @@ public class AdvertFrame extends JFrame {
         }
     }
 
-    public static void removeLineFromFile(String filePath, String urlToRemove) throws IOException {
-        File inputFile = new File(filePath);
-        File tempFile = new File("temp_favourites.txt");
-
-        BufferedReader reader = new BufferedReader(new FileReader(inputFile));
-        BufferedWriter writer = new BufferedWriter(new FileWriter(tempFile));
-
-        String currentLine;
-
-        while ((currentLine = reader.readLine()) != null) {
-            if (currentLine.equals(urlToRemove)) {
-                continue;
-            }
-            writer.write(currentLine + System.lineSeparator());
-        }
-
-        writer.close();
-        reader.close();
-
-        if (!inputFile.delete()) {
-            Logger_.error("Could not delete the original favourites file.");
-            return;
-        }
-
-        if (!tempFile.renameTo(inputFile)) {
-            Logger_.error("Could not rename the temporary favourites file.");
-        }
-    }
-
     private void addSpace() {
         infoPanel.add(Box.createRigidArea(new Dimension(0, 15)));
     }

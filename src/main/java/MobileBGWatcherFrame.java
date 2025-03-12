@@ -3,6 +3,7 @@ import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
 import javax.swing.*;
+import javax.swing.border.MatteBorder;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
@@ -79,6 +80,7 @@ public class MobileBGWatcherFrame extends JFrame {
             }
         });
 
+        Utils.loadFavourites();
         loadCars();
     }
 
@@ -182,11 +184,24 @@ public class MobileBGWatcherFrame extends JFrame {
                             advID = 1 + advID.substring(1);
                         }
 
+                        String advertParams = "";
+                        String[] split = element.select("div[class='params']").html().split("<span>");
+                        for (int i = 0; i < split.length; i++) {
+                            String s = split[i];
+                            if (i % 2 == 0 && i != 0) {
+                                advertParams += "<br>" + s;
+                            } else {
+                                advertParams += s;
+                            }
+                        }
+
                         Advert advert = new Advert(carImageURL,
                                 element.select("a[class*='title']").text(),
                                 carLink,
                                 element.select(".price ").text().split(" лв.")[0] + " лв.",
-                                Long.valueOf(advID), Utils.checkUrlInFavouritesFile(carLink)
+                                Long.valueOf(advID),
+                                modelName,
+                                advertParams
                         );
 
                         advertList.add(advert);
@@ -269,6 +284,8 @@ public class MobileBGWatcherFrame extends JFrame {
     }
 
     private static class AdvertInfoCellRenderer extends JPanel implements ListCellRenderer<Advert> {
+        private final Color GOLD_COLOR = new Color(255, 196,0);
+
         private JLabel imageLabel = new JLabel();
         private JLabel textLabel = new JLabel();
         private JLabel priceLabel = new JLabel();
@@ -277,6 +294,9 @@ public class MobileBGWatcherFrame extends JFrame {
 
         public AdvertInfoCellRenderer() {
             setLayout(new BorderLayout());
+//            setBorder(new EmptyBorder(0, 0, 10, 0)); // Adds spacing around each cell
+//            setBorder(new LineBorder(Color.BLUE, 2));
+            setBorder(new MatteBorder(1, 0, 1, 0, Color.BLUE));
             add(imageLabel, BorderLayout.WEST);
             textPanel.add(textLabel, BorderLayout.NORTH);
             textPanel.add(priceLabel, BorderLayout.CENTER);
@@ -293,22 +313,19 @@ public class MobileBGWatcherFrame extends JFrame {
             Image scaledImage = image.getScaledInstance(targetWidth, targetHeight, Image.SCALE_SMOOTH);
             imageLabel.setIcon(new ImageIcon(scaledImage));
             textLabel.setText(
-                    "<html>" + value.getAdvertTitle() +
-                            "<br> Price: " + value.getCarPrice() +
-                            "<br> Adv: " + value.getAdvertNumber() + "</html>");
+                    "<html><p style=\"color:red;\">" + value.getAdvertTitle() + "</p>" +
+                            "Price: " + value.getCarPrice() +
+//                            "<br> Adv: " + value.getAdvertNumber() +
+                            "<br><p style=\"color:blue;\">" + value.getAdvertProperty() + "</p>" +
+//                            "<br><br>" + value.getAdvertProperty() +
+                            value.getAdvertParams() + "</html>");
 
             if (value.isFavourite()) {
-                setBackground(Color.ORANGE);
-                repaint();
+                setBackground(GOLD_COLOR);
+                setBorder(new MatteBorder(1, 0, 1, 0, GOLD_COLOR));
             } else {
                 setBackground(list.getBackground());
-            }
-
-            if (Utils.checkUrlInFavouritesFile(value.getAdvertURL())) {
-                setBackground(Color.ORANGE);
-            } else {
-                setBackground(list.getBackground());
-                repaint();
+                setBorder(new MatteBorder(1, 0, 1, 0, Color.GRAY)); // Default border
             }
 
             textPanel.setOpaque(false);

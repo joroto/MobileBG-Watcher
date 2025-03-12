@@ -11,6 +11,8 @@ import java.util.Map;
 
 public class Advert {
     boolean isFavourite;
+    private String advertProperty;
+    private String advertParams;
     private String advertURL;
     private List<String> imageUrls;
     private String advertTitle;
@@ -24,13 +26,15 @@ public class Advert {
     private Long advertNumber;
     private BufferedImage mainImage;
 
-    public Advert(String imageUrl, String title, String url, String price, Long advNumber, boolean isFavourite) {
+    public Advert(String imageUrl, String title, String url, String price, Long advNumber, String advertProperty, String params) {
         this.advertTitle = title;
         this.advertURL = url;
         this.carPrice = price;
         this.advertNumber = advNumber;
         this.mainImage = readImageFromURL(imageUrl);
-        this.isFavourite = isFavourite;
+        this.isFavourite = Utils.checkUrlInFavourites(this.getAdvertURL());
+        this.advertProperty = advertProperty;
+        this.advertParams = params;
     }
 
     private BufferedImage readImageFromURL(String imageUrl) {
@@ -145,6 +149,15 @@ public class Advert {
 
     public void setAdvertStats(String advertStats) {
         this.advertStats = advertStats;
+    }
+
+
+    public String getAdvertProperty() {
+        return advertProperty;
+    }
+
+    public String getAdvertParams() {
+        return advertParams;
     }
 
     public void addToFavourites() {
