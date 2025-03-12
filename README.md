@@ -3,7 +3,7 @@ MobileBG Watcher is a tool used to track new car listings on mobile.bg. It shows
 The listings are always sorted by newest created, edits of old listings are not pushed to top. Tool supports multiple filters active at once.
 
 # How to use
-<image width= '250' src='https://i.imgur.com/r5zM1zx.png'></image>
+<image width= '250' src='https://i.imgur.com/hrSPqWm.png'></image>
 <br>This is the app's main screen, which you will see after loading. Here you have all adverts gathered for the filters you have set up,
 sorted by date of publishing (newest first, edited adverts are not bumped to top).
 <br>
