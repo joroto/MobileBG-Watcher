@@ -21,6 +21,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLEncoder;
 
 public class MobileBGWatcherFrame extends JFrame {
     public static List<Advert> advertList;
@@ -267,6 +270,7 @@ public class MobileBGWatcherFrame extends JFrame {
                 advertIn.setMainCarParams(mainCarParamsMap);
                 advertIn.setAdvertPhone(advertPhone.text());
                 advertIn.setCarLocation(carLocation.text());
+                advertIn.setPriceHistory(fetchPriceHistory(advertIn.getAdvertNumber().toString(), advertIn.getCarPrice(), "лв."));
 
 //                advert = new Advert(imageLinks, advertIn.getAdvertTitle(), carLocation.text(), advertIn.getCarPrice(), advertPhone.text().split(" ")[0], mainCarParamsMap, advertStats.text(), advertIn.getAdvertURL(), advertDescriptionText);
                 advert = advertIn;
@@ -283,8 +287,49 @@ public class MobileBGWatcherFrame extends JFrame {
         }
     }
 
+
+    public static String fetchPriceHistory(String advertId, String price, String currency) {
+        try {
+            String requestUrl = "https://www.mobile.bg/pcgi/subscript.cgi";
+            URL url = new URL(requestUrl);
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+
+            conn.setRequestMethod("POST");
+            conn.setRequestProperty("Accept", "application/json, text/javascript, */*; q=0.01");
+            conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
+            conn.setRequestProperty("Accept-Charset", "UTF-8");
+            conn.setRequestProperty("X-Requested-With", "XMLHttpRequest");
+            conn.setRequestProperty("Referer", "https://www.mobile.bg/obiava-" + advertId);
+            conn.setDoOutput(true);
+
+
+            String postData = "act=3&ida=" + URLEncoder.encode(advertId, "UTF-8") +
+                    "&pr=" + URLEncoder.encode(price, "UTF-8") +
+                    "&cr=" + URLEncoder.encode("лв.", "windows-1251") +
+                    "&mode=1";
+
+            try (OutputStream os = conn.getOutputStream()) {
+                byte[] input = postData.getBytes("utf-8");
+                os.write(input, 0, input.length);
+            }
+
+            BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream(), "windows-1251"));
+            StringBuilder response = new StringBuilder();
+            String responseLine;
+            while ((responseLine = reader.readLine()) != null) {
+                response.append(responseLine.trim());
+            }
+
+            return response.toString();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
     private static class AdvertInfoCellRenderer extends JPanel implements ListCellRenderer<Advert> {
-        private final Color GOLD_COLOR = new Color(255, 196,0);
+        private final Color GOLD_COLOR = new Color(255, 196, 0);
 
         private JLabel imageLabel = new JLabel();
         private JLabel textLabel = new JLabel();

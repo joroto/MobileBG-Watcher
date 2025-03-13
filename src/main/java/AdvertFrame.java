@@ -1,3 +1,7 @@
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.select.Elements;
+
 import javax.imageio.ImageIO;
 import javax.swing.*;
 import java.awt.*;
@@ -78,6 +82,60 @@ public class AdvertFrame extends JFrame {
         JLabel jLabelCarPrice = new JLabel(advert.getCarPrice());
         jLabelCarPrice.setFont(labelFont);
         infoPanel.add(jLabelCarPrice);
+        addSpace();
+
+        JLabel priceHistoryLabel = new JLabel("Price history");
+        priceHistoryLabel.setFont(labelFont);
+        priceHistoryLabel.setForeground(Color.BLUE);
+        priceHistoryLabel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+
+        JPopupMenu popup = new JPopupMenu();
+        popup.setLayout(new BorderLayout());
+        JLabel popupContent = new JLabel();
+        popup.add(popupContent, BorderLayout.CENTER);
+
+        priceHistoryLabel.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseEntered(MouseEvent e) {
+                String tableHtml = advert.getPriceHistory(); // This returns the full HTML as a String
+
+                Document doc = Jsoup.parse(tableHtml);
+                StringBuilder historyText = new StringBuilder("<html>");
+                historyText.append("<table border='1' style='border-collapse: collapse;'>");
+                historyText.append("<tr><th>Дата</th><th>Промяна</th><th>Цена</th></tr>"); // Table header
+
+                Elements divs = doc.select("div");
+                for (int i = 0; i < divs.size(); i += 3) {
+                    String date = divs.get(i).text().trim();
+                    String change = divs.get(i + 1).text().trim();
+                    String price = divs.get(i + 2).text().trim();
+
+                    // Skip empty rows (e.g., "Начало" with empty change)
+                    if (!date.isEmpty() && !price.isEmpty()) {
+                        historyText.append("<tr>")
+                                .append("<td>").append(date).append("</td>")
+                                .append("<td>").append(change.isEmpty() ? "&nbsp;" : change).append("</td>")
+                                .append("<td>").append(price).append("</td>")
+                                .append("</tr>");
+                    }
+                }
+
+                historyText.append("</table>");
+                historyText.append("</html>");
+
+                popupContent.setText(historyText.toString());
+                popup.show(priceHistoryLabel, 0, priceHistoryLabel.getHeight()); // Show popup below the label
+            }
+
+            @Override
+            public void mouseExited(MouseEvent e) {
+                popup.setVisible(false);
+            }
+        });
+
+        Logger_.info("ADVERT PRICE HISTORY: " + advert.getPriceHistory());
+
+        infoPanel.add(priceHistoryLabel);
         addSpace();
 
         Map<String, String> mainCarParams = advert.getMainCarParams();

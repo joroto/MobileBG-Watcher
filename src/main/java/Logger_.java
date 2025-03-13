@@ -48,7 +48,7 @@ public abstract class Logger_ {
             info("Folder for logs found.");
         }
 
-        File file = new File(currentDirectory + "\\LOGS\\" + "CarWatcher_LOG_" + System.currentTimeMillis() + "");
+        File file = new File(currentDirectory + "\\LOGS\\" + "MobileBG-Watcher_LOG_" + System.currentTimeMillis() + "");
         try {
             FileWriter myWriter = new FileWriter(file);
             myWriter.write(String.valueOf(log));

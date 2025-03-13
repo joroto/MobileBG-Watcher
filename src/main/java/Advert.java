@@ -19,7 +19,7 @@ public class Advert {
     private String carLocation;
     private String carPrice;
     private String advertPhone;
-    //    String priceHistory;
+    private String priceHistory;
     private Map<String, String> mainCarParams;
     private String advertStats;
     private String advertDescription;
@@ -158,6 +158,14 @@ public class Advert {
 
     public String getAdvertParams() {
         return advertParams;
+    }
+
+    public String getPriceHistory() {
+        return priceHistory;
+    }
+
+    public void setPriceHistory(String priceHistory) {
+        this.priceHistory = priceHistory;
     }
 
     public void addToFavourites() {
